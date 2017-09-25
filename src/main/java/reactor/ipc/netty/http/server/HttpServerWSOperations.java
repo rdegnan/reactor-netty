@@ -33,6 +33,8 @@ import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
 import io.netty.util.ReferenceCountUtil;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.http.HttpOperations;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
@@ -45,7 +47,7 @@ import reactor.ipc.netty.http.websocket.WebsocketOutbound;
  * @author Simon Baslé
  */
 final class HttpServerWSOperations extends HttpServerOperations
-		implements WebsocketInbound, WebsocketOutbound, BiConsumer<Void, Throwable> {
+		implements WebsocketInbound, WebsocketOutbound, Action {
 
 	final WebSocketServerHandshaker handshaker;
 	final ChannelPromise            handshakerResult;
@@ -90,9 +92,6 @@ final class HttpServerWSOperations extends HttpServerOperations
 	@Override
 	public void onInboundNext(ChannelHandlerContext ctx, Object frame) {
 		if (frame instanceof CloseWebSocketFrame && ((CloseWebSocketFrame) frame).isFinalFragment()) {
-			if (log.isDebugEnabled()) {
-				log.debug("CloseWebSocketFrame detected. Closing Websocket");
-			}
 			CloseWebSocketFrame close = (CloseWebSocketFrame) frame;
 			sendClose(new CloseWebSocketFrame(true,
 					close.rsv(),
@@ -112,14 +111,9 @@ final class HttpServerWSOperations extends HttpServerOperations
 	}
 
 	@Override
-	public void accept(Void aVoid, Throwable throwable) {
-		if (throwable == null) {
-			if (channel().isActive()) {
-				sendClose(null, f -> onHandlerTerminate());
-			}
-		}
-		else {
-			onOutboundError(throwable);
+	public void run() throws Exception {
+		if (channel().isActive()) {
+			sendClose(null, f -> onHandlerTerminate());
 		}
 	}
 

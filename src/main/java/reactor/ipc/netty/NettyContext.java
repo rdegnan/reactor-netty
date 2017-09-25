@@ -17,13 +17,14 @@ package reactor.ipc.netty;
 
 import java.net.InetSocketAddress;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
-import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Action;
 
 /**
  * Hold contextual information for the underlying {@link Channel}
@@ -232,14 +233,14 @@ public interface NettyContext extends Disposable {
 	}
 
 	/**
-	 * Return an observing {@link Mono} terminating with success when shutdown
+	 * Return an observing {@link Nono} terminating with success when shutdown
 	 * successfully
 	 * or error.
 	 *
-	 * @return a {@link Mono} terminating with success if shutdown successfully or error
+	 * @return a {@link Nono} terminating with success if shutdown successfully or error
 	 */
-	default Mono<Void> onClose(){
-		return FutureMono.from(channel().closeFuture());
+	default Nono onClose(){
+		return FutureNono.from(channel().closeFuture());
 	}
 
 	/**
@@ -249,8 +250,8 @@ public interface NettyContext extends Disposable {
 	 *
 	 * @return {@literal this}
 	 */
-	default NettyContext onClose(Runnable onClose){
-		onClose().subscribe(null, e -> onClose.run(), onClose);
+	default NettyContext onClose(Action onClose){
+		onClose().subscribe(onClose, e -> onClose.run());
 		return this;
 	}
 

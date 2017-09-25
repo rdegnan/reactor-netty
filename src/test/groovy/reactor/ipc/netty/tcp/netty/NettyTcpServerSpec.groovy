@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.json.JsonObjectDecoder
 import io.netty.util.NetUtil
-import reactor.core.publisher.Flux
+import io.reactivex.Flowable
 import reactor.ipc.netty.tcp.TcpClient
 import reactor.ipc.netty.tcp.TcpServer
 import spock.lang.Specification
@@ -28,7 +28,6 @@ import spock.lang.Specification
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 import java.nio.charset.Charset
-import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -57,14 +56,13 @@ class NettyTcpServerSpec extends Specification {
 	  o.send(i.receive()
 			  .asString()
 			  .map(jsonDecoder)
-			  .log()
 			  .take(1)
 			  .map { pojo ->
 		assert pojo.name == "John Doe"
 		new Pojo(name: "Jane Doe")
 	  }
 	  .map(jsonEncoder))
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet(30, TimeUnit.SECONDS)
 
 	def client = new SimpleClient(server.address().port, dataLatch,
 			"{\"name\":\"John Doe\"}")
@@ -87,12 +85,11 @@ class NettyTcpServerSpec extends Specification {
 	  i.context().addHandlerLast(new JsonObjectDecoder())
 	  i.receive()
 			  .asString()
-			  .log('serve')
 			  .map { bb -> m.readValue(bb, Pojo[]) }
-			  .concatMap { d -> Flux.fromArray(d) }
+			  .concatMap { d -> Flowable.fromArray(d) }
 			  .window(5)
-			  .concatMap { w -> o.send(w.collectList().map(jsonEncoder)) }
-	}.block(Duration.ofSeconds(30))
+			  .concatMap { w -> o.send(w.toList().map(jsonEncoder).toFlowable()) }
+	}.blockingGet(30, TimeUnit.SECONDS)
 
 	def client = TcpClient.create(server.address().port)
 	client.newHandler { i, o ->
@@ -101,17 +98,16 @@ class NettyTcpServerSpec extends Specification {
 	  i.receive()
 			  .asString()
 			  .map { bb -> m.readValue(bb, Pojo[]) }
-			  .concatMap { d -> Flux.fromArray(d) }
-			  .log('receive')
+			  .concatMap { d -> Flowable.fromArray(d) }
 			  .subscribe { latch.countDown() }
 
-	  o.send(Flux.range(1, 10)
+	  o.send(Flowable.range(1, 10)
 			  .map { new Pojo(name: 'test' + it) }
-			  .log('send')
-			  .collectList()
-			  .map(jsonEncoder))
+			  .toList()
+			  .map(jsonEncoder)
+	  		  .toFlowable())
 	    .neverComplete()
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet(30, TimeUnit.SECONDS)
 
 	then: "the client/server were started"
 	latch.await(30, TimeUnit.SECONDS)
@@ -132,36 +128,34 @@ class NettyTcpServerSpec extends Specification {
 			  .asString()
 			  .map { bb -> m.readValue(bb, Pojo[]) }
 			  .map { d ->
-				  Flux.fromArray(d)
+				  Flowable.fromArray(d)
 						  .doOnNext {
 							  if (j++ < 2) {
 								throw new Exception("test")
 							  }
 							}
 						  .retry(2)
-						  .collectList()
+						  .toList()
 						  .map(jsonEncoder)
+						  .toFlowable()
 				}
-	  		  .doOnComplete { println 'wow ' + it }
-			  .log('flatmap-retry'))
-	}.block(Duration.ofSeconds(30))
+	  		  .doOnComplete { println 'wow ' + it })
+	}.blockingGet(30, TimeUnit.SECONDS)
 
 	def client = TcpClient.create("localhost", server.address().port)
 	client.newHandler { i, o ->
 	  i.receive()
 			  .asString()
 			  .map { bb -> m.readValue(bb, Pojo[]) }
-			  .concatMap { d -> Flux.fromArray(d) }
-			  .log('receive')
+			  .concatMap { d -> Flowable.fromArray(d) }
 			  .subscribe { latch.countDown() }
 
-	  o.send(Flux.range(1, elem)
+	  o.send(Flowable.range(1, elem)
 			  .map { new Pojo(name: 'test' + it) }
-			  .log('send')
-			  .collectList().map(jsonEncoder))
+			  .toList().map(jsonEncoder).toFlowable())
 			  .neverComplete()
 
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet(30, TimeUnit.SECONDS)
 
 	then: "the client/server were started"
 	latch.await(10, TimeUnit.SECONDS)

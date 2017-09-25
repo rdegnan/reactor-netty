@@ -19,9 +19,10 @@ package reactor.ipc.netty.tcp;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -29,9 +30,9 @@ import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -101,7 +102,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 * @param options {@link ClientOptions} configuration input
 	 * @return a new {@link TcpClient}
 	 */
-	public static TcpClient create(Consumer<? super ClientOptions.Builder<?>> options) {
+	public static TcpClient create(PlainConsumer<? super ClientOptions.Builder<?>> options) {
 		return builder().options(options).build();
 	}
 
@@ -131,7 +132,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	@Override
-	public final Mono<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
+	public final Perhaps<? extends NettyContext> newHandler(PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(handler, "handler");
 		return newHandler(handler, null, true, null);
 	}
@@ -158,16 +159,16 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 *
 	 * @return a new Mono to connect on subscribe
 	 */
-	protected Mono<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			InetSocketAddress address,
-			boolean secure,
-			Consumer<? super Channel> onSetup) {
+	protected Perhaps<NettyContext> newHandler(PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+																						 InetSocketAddress address,
+																						 boolean secure,
+																						 PlainConsumer<? super Channel> onSetup) {
 
-		final BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>>
+		final PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>>
 				targetHandler =
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
-		return Mono.create(sink -> {
+		return Perhaps.create(sink -> {
 			SocketAddress remote = address != null ? address : options.getAddress();
 
 			ChannelPool pool = null;
@@ -181,10 +182,10 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 
 			ContextHandler<SocketChannel> contextHandler =
 					doHandler(targetHandler, sink, secure, remote, pool, onSetup);
-			sink.onCancel(contextHandler);
+			sink.setDisposable(contextHandler);
 
 			if (pool == null) {
-				Bootstrap b = options.get();
+				Bootstrap b = options.call();
 				b.remoteAddress(remote);
 				b.handler(contextHandler);
 				contextHandler.setFuture(b.connect());
@@ -206,12 +207,12 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 *
 	 * @return a new {@link ContextHandler}
 	 */
-	protected ContextHandler<SocketChannel> doHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink,
+	protected ContextHandler<SocketChannel> doHandler(PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+			MaybeEmitter<NettyContext> sink,
 			boolean secure,
 			SocketAddress providedAddress,
 			ChannelPool pool,
-			Consumer<? super Channel> onSetup) {
+			PlainConsumer<? super Channel> onSetup) {
 		return ContextHandler.newClientContext(sink,
 				options,
 				loggingHandler,
@@ -228,7 +229,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 
 
 	public static final class Builder {
-		private Consumer<? super ClientOptions.Builder<?>> options;
+		private PlainConsumer<? super ClientOptions.Builder<?>> options;
 
 		private Builder() {
 		}
@@ -239,7 +240,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 		 * @param options the options for the client, including address and port.
 		 * @return {@code this}
 		 */
-		public final Builder options(Consumer<? super ClientOptions.Builder<?>> options) {
+		public final Builder options(PlainConsumer<? super ClientOptions.Builder<?>> options) {
 			this.options = Objects.requireNonNull(options, "options");
 			return this;
 		}

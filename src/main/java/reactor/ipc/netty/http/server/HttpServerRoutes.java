@@ -21,15 +21,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
+import hu.akarnokd.rxjava2.functions.PlainFunction;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
+import io.reactivex.functions.Predicate;
 import org.reactivestreams.Publisher;
-import reactor.ipc.netty.ByteBufFlux;
+import reactor.ipc.netty.ByteBufFlowable;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
 
@@ -40,7 +40,7 @@ import reactor.ipc.netty.http.websocket.WebsocketOutbound;
  * @author Stephane Maldini
  */
 public interface HttpServerRoutes extends
-                                  BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
+                                  PlainBiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
 
 	/**
 	 * @return a new default routing registry {@link HttpServerRoutes}
@@ -61,7 +61,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes delete(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		return route(HttpPredicate.delete(path), handler);
 	}
 
@@ -97,7 +97,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	HttpServerRoutes directory(String uri, Path directory,
-			Function<HttpServerResponse, HttpServerResponse> interceptor);
+			PlainFunction<HttpServerResponse, HttpServerResponse> interceptor);
 
 	/**
 	 * Listen for HTTP GET on the passed path to be used as a routing condition. The
@@ -146,11 +146,11 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes file(Predicate<HttpServerRequest> uri, Path path,
-			Function<HttpServerResponse, HttpServerResponse> interceptor) {
+			PlainFunction<HttpServerResponse, HttpServerResponse> interceptor) {
 		Objects.requireNonNull(path, "path");
 		return route(uri, (req, resp) -> {
 			if (!Files.isReadable(path)) {
-				return resp.send(ByteBufFlux.fromPath(path));
+				return resp.send(ByteBufFlowable.fromPath(path));
 			}
 			if (interceptor != null) {
 				return interceptor.apply(resp)
@@ -172,7 +172,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes get(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		return route(HttpPredicate.get(path), handler);
 	}
 
@@ -183,7 +183,7 @@ public interface HttpServerRoutes extends
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	default HttpServerRoutes index(final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+	default HttpServerRoutes index(final PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		return route(INDEX_PREDICATE, handler);
 	}
 
@@ -199,7 +199,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes post(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		return route(HttpPredicate.post(path), handler);
 	}
 
@@ -215,7 +215,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes put(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		return route(HttpPredicate.put(path), handler);
 	}
 
@@ -228,7 +228,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler);
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler);
 
 	/**
 	 * Listen for WebSocket on the passed path to be used as a routing condition. Incoming
@@ -242,7 +242,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes ws(String path,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
+			PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
 					Publisher<Void>> handler) {
 		return ws(path, handler, null);
 	}
@@ -261,7 +261,7 @@ public interface HttpServerRoutes extends
 	 */
 	@SuppressWarnings("unchecked")
 	default HttpServerRoutes ws(String path,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
+			PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
 					Publisher<Void>> handler,
 			String protocols) {
 		Predicate<HttpServerRequest> condition = HttpPredicate.get(path);

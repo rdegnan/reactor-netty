@@ -16,6 +16,8 @@
 
 package reactor.ipc.netty.http.server;
 
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,13 +25,14 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainFunction;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 
 /**
  * @author Stephane Maldini
@@ -42,7 +45,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 	@Override
 	public HttpServerRoutes directory(String uri, Path directory,
-			Function<HttpServerResponse, HttpServerResponse> interceptor) {
+			PlainFunction<HttpServerResponse, HttpServerResponse> interceptor) {
 		Objects.requireNonNull(directory, "directory");
 		return route(HttpPredicate.prefix(uri), (req, resp) -> {
 
@@ -70,7 +73,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 	@Override
 	public HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(condition, "condition");
 		Objects.requireNonNull(handler, "handler");
 
@@ -100,7 +103,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 		catch (Throwable t) {
 			Exceptions.throwIfFatal(t);
-			return Mono.error(t); //500
+			return Nono.error(t); //500
 		}
 
 		return response.sendNotFound();
@@ -109,17 +112,17 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 	/**
 	 */
 	static final class HttpRouteHandler
-			implements BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>>,
+			implements PlainBiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>>,
 			           Predicate<HttpServerRequest> {
 
 		final Predicate<? super HttpServerRequest>          condition;
-		final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>>
+		final PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>>
 		                                                    handler;
-		final Function<? super String, Map<String, String>> resolver;
+		final PlainFunction<? super String, Map<String, String>> resolver;
 
 		HttpRouteHandler(Predicate<? super HttpServerRequest> condition,
-				BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
-				Function<? super String, Map<String, String>> resolver) {
+				PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+				PlainFunction<? super String, Map<String, String>> resolver) {
 			this.condition = Objects.requireNonNull(condition, "condition");
 			this.handler = Objects.requireNonNull(handler, "handler");
 			this.resolver = resolver;
@@ -132,7 +135,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 
 		@Override
-		public boolean test(HttpServerRequest o) {
+		public boolean test(HttpServerRequest o) throws Exception {
 			return condition.test(o);
 		}
 	}

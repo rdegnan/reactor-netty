@@ -100,7 +100,7 @@ public final class HttpServerOptions extends ServerOptions {
 		 */
 		public final Builder compression(boolean enabled) {
 			this.minCompressionResponseSize = enabled ? 0 : -1;
-			return get();
+			return call();
 		}
 
 		/**
@@ -117,7 +117,7 @@ public final class HttpServerOptions extends ServerOptions {
 				throw new IllegalArgumentException("minResponseSize must be positive");
 			}
 			this.minCompressionResponseSize = minResponseSize;
-			return get();
+			return call();
 		}
 
 		/**
@@ -129,7 +129,7 @@ public final class HttpServerOptions extends ServerOptions {
 		public final Builder from(HttpServerOptions options) {
 			super.from(options);
 			this.minCompressionResponseSize = options.minCompressionResponseSize;
-			return get();
+			return call();
 		}
 
 		@Override

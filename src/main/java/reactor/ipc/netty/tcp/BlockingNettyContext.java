@@ -17,43 +17,41 @@
 package reactor.ipc.netty.tcp;
 
 import java.net.InetSocketAddress;
-import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import reactor.core.publisher.Mono;
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
 import reactor.ipc.netty.NettyContext;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
- * Wrap a {@link NettyContext} obtained from a {@link Mono} and offer methods to manage
+ * Wrap a {@link NettyContext} obtained from a {@link Perhaps} and offer methods to manage
  * its lifecycle in a blocking fashion.
  *
  * @author Simon Baslé
  */
 public class BlockingNettyContext {
 
-	private static final Logger LOG = Loggers.getLogger(BlockingNettyContext.class);
-
 	private final NettyContext context;
 	private final String description;
 
-	private Duration lifecycleTimeout;
+	private long lifecycleTimeout;
+	private TimeUnit unit;
 	private Thread shutdownHook;
 
-	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
+	public BlockingNettyContext(Perhaps<? extends NettyContext> contextAsync,
 			String description) {
-		this(contextAsync, description, Duration.ofSeconds(3));
+		this(contextAsync, description, 3, TimeUnit.SECONDS);
 	}
 
-	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
-			String description, Duration lifecycleTimeout) {
+	public BlockingNettyContext(Perhaps<? extends NettyContext> contextAsync,
+			String description, long lifecycleTimeout, TimeUnit unit) {
 		this.description = description;
 		this.lifecycleTimeout = lifecycleTimeout;
+		this.unit = unit;
 		this.context = contextAsync
-				.timeout(lifecycleTimeout, Mono.error(new TimeoutException(description + " couldn't be started within " + lifecycleTimeout.toMillis() + "ms")))
-				.doOnNext(ctx -> LOG.info("Started {} on {}", description, ctx.address()))
-				.block();
+				.timeout(lifecycleTimeout, unit, Perhaps.error(new TimeoutException(description + " couldn't be started within " + unit.toMillis(lifecycleTimeout) + "ms")))
+				.blockingGet();
 	}
 
 	/**
@@ -62,8 +60,9 @@ public class BlockingNettyContext {
 	 *
 	 * @param timeout the new timeout to apply on shutdown.
 	 */
-	public void setLifecycleTimeout(Duration timeout) {
+	public void setLifecycleTimeout(long timeout, TimeUnit unit) {
 		this.lifecycleTimeout = timeout;
+		this.unit = unit;
 	}
 
 	/**
@@ -135,7 +134,7 @@ public class BlockingNettyContext {
 
 	/**
 	 * Shut down the {@link NettyContext} and wait for its termination, up to the
-	 * {@link #setLifecycleTimeout(Duration) lifecycle timeout}.
+	 * {@link #setLifecycleTimeout(long, TimeUnit) lifecycle timeout}.
 	 */
 	public void shutdown() {
 		if (context.isDisposed()) {
@@ -146,10 +145,8 @@ public class BlockingNettyContext {
 
 		context.dispose();
 		context.onClose()
-		       .doOnError(e -> LOG.error("Stopped {} on {} with an error {}", description, context.address(), e))
-		       .doOnTerminate(() -> LOG.info("Stopped {} on {}", description, context.address()))
-		       .timeout(lifecycleTimeout, Mono.error(new TimeoutException(description + " couldn't be stopped within " + lifecycleTimeout.toMillis() + "ms")))
-		       .block();
+		       .timeout(lifecycleTimeout, unit, Nono.error(new TimeoutException(description + " couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
+		       .blockingAwait();
 	}
 
 	protected void shutdownFromJVM() {
@@ -161,12 +158,8 @@ public class BlockingNettyContext {
 
 		context.dispose();
 		context.onClose()
-		       .doOnError(e -> LOG.error("Stopped {} on {} with an error {} from JVM hook {}",
-				       description, context.address(), e, hookDesc))
-		       .doOnTerminate(() -> LOG.info("Stopped {} on {} from JVM hook {}",
-				       description, context.address(), hookDesc))
-		       .timeout(lifecycleTimeout, Mono.error(new TimeoutException(description +
-				       " couldn't be stopped within " + lifecycleTimeout.toMillis() + "ms")))
-		       .block();
+		       .timeout(lifecycleTimeout, unit, Nono.error(new TimeoutException(description +
+				       " couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
+		       .blockingAwait();
 	}
 }

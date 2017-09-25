@@ -15,15 +15,14 @@
  */
 package reactor.ipc.netty.http.server;
 
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.cookie.Cookie;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -68,7 +67,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	HttpServerResponse chunkedTransfer(boolean chunked);
 
 	@Override
-	default HttpServerResponse context(Consumer<NettyContext> contextCallback){
+	default HttpServerResponse context(PlainConsumer<NettyContext> contextCallback){
 		contextCallback.accept(context());
 		return this;
 	}
@@ -113,7 +112,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	}
 
 	@Override
-	default HttpServerResponse options(Consumer<? super NettyPipeline.SendOptions> configurator){
+	default HttpServerResponse options(PlainConsumer<? super NettyPipeline.SendOptions> configurator){
 		NettyOutbound.super.options(configurator);
 		return this;
 	}
@@ -127,10 +126,10 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http response.
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Nono} successful on committed response
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send(){
+	default Nono send(){
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -144,9 +143,9 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send 404 status {@link HttpResponseStatus#NOT_FOUND}.
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Nono} successful on flush confirmation
 	 */
-	Mono<Void> sendNotFound();
+	Nono sendNotFound();
 
 	/**
 	 * Send redirect status {@link HttpResponseStatus#FOUND} along with a location
@@ -154,32 +153,32 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @param location the location to redirect to
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Nono} successful on flush confirmation
 	 */
-	Mono<Void> sendRedirect(String location);
+	Nono sendRedirect(String location);
 
 	/**
 	 * Upgrade connection to Websocket. Mono and Callback are invoked on handshake
-	 * success, otherwise the returned {@link Mono} fails.
+	 * success, otherwise the returned {@link Nono} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Nono} completing when upgrade is confirmed
 	 */
-	default Mono<Void> sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Nono sendWebsocket(PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return sendWebsocket(uri(), websocketHandler);
 	}
 
 	/**
 	 * Upgrade connection to Websocket with optional subprotocol(s). Mono and Callback
-	 * are invoked on handshake success, otherwise the returned {@link Mono} fails.
+	 * are invoked on handshake success, otherwise the returned {@link Nono} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Nono} completing when upgrade is confirmed
 	 */
-	Mono<Void> sendWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
+	Nono sendWebsocket(String protocols,
+			PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
 
 
 	/**

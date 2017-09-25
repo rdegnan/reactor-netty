@@ -18,70 +18,69 @@ package reactor.ipc.netty;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.reactivex.internal.subscriptions.EmptySubscription;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import reactor.core.CoreSubscriber;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.Operators;
 
 /**
- * Convert Netty Future into void {@link Mono}.
+ * Convert Netty Future into void {@link Nono}.
  *
  * @author Stephane Maldini
  */
-public abstract class FutureMono extends Mono<Void> {
+public abstract class FutureNono extends Nono {
 
 	/**
-	 * Convert a {@link Future} into {@link Mono}. {@link Mono#subscribe(Subscriber)}
+	 * Convert a {@link Future} into {@link Nono}. {@link Nono#subscribe(Subscriber)}
 	 * will bridge to {@link Future#addListener(GenericFutureListener)}.
 	 *
 	 * @param future the future to convert from
 	 * @param <F> the future type
 	 *
-	 * @return A {@link Mono} forwarding {@link Future} success or failure
+	 * @return A {@link Nono} forwarding {@link Future} success or failure
 	 */
-	public static <F extends Future<Void>> Mono<Void> from(F future) {
+	public static <F extends Future<Void>> Nono from(F future) {
 		if(future.isDone()){
 			if(!future.isSuccess()){
-				return Mono.error(future.cause());
+				return Nono.error(future.cause());
 			}
-			return Mono.empty();
+			return Nono.complete();
 		}
-		return new ImmediateFutureMono<>(future);
+		return new ImmediateFutureNono<>(future);
 	}
 
 	/**
-	 * Convert a supplied {@link Future} for each subscriber into {@link Mono}.
-	 * {@link Mono#subscribe(Subscriber)}
+	 * Convert a supplied {@link Future} for each subscriber into {@link Nono}.
+	 * {@link Nono#subscribe(Subscriber)}
 	 * will bridge to {@link Future#addListener(GenericFutureListener)}.
 	 *
 	 * @param deferredFuture the future to evaluate and convert from
 	 * @param <F> the future type
 	 *
-	 * @return A {@link Mono} forwarding {@link Future} success or failure
+	 * @return A {@link Nono} forwarding {@link Future} success or failure
 	 */
-	public static <F extends Future<Void>> Mono<Void> deferFuture(Supplier<F> deferredFuture) {
-		return new DeferredFutureMono<>(deferredFuture);
+	public static <F extends Future<Void>> Nono deferFuture(Supplier<F> deferredFuture) {
+		return new DeferredFutureNono<>(deferredFuture);
 	}
 
-	final static class ImmediateFutureMono<F extends Future<Void>> extends FutureMono {
+	final static class ImmediateFutureNono<F extends Future<Void>> extends FutureNono {
 
 		final F future;
 
-		ImmediateFutureMono(F future) {
+		ImmediateFutureNono(F future) {
 			this.future = Objects.requireNonNull(future, "future");
 		}
 
 		@Override
-		public final void subscribe(final CoreSubscriber<? super Void> s) {
+		protected void subscribeActual(Subscriber<? super Void> s) {
 			if(future.isDone()){
 				if(future.isSuccess()){
-					Operators.complete(s);
+					EmptySubscription.complete(s);
 				}
 				else{
-					Operators.error(s, future.cause());
+					EmptySubscription.error(future.cause(), s);
 				}
 				return;
 			}
@@ -92,32 +91,30 @@ public abstract class FutureMono extends Mono<Void> {
 		}
 	}
 
-	final static class DeferredFutureMono<F extends Future<Void>> extends FutureMono {
+	final static class DeferredFutureNono<F extends Future<Void>> extends FutureNono {
 
 		final Supplier<F> deferredFuture;
 
-		DeferredFutureMono(Supplier<F> deferredFuture) {
+		DeferredFutureNono(Supplier<F> deferredFuture) {
 			this.deferredFuture =
 					Objects.requireNonNull(deferredFuture, "deferredFuture");
 		}
 
 		@Override
-		public void subscribe(CoreSubscriber<? super Void> s) {
+		protected void subscribeActual(Subscriber<? super Void> s) {
 			F f = deferredFuture.get();
 
 			if (f == null) {
-				Operators.error(s,
-						Operators.onOperatorError(new NullPointerException("Deferred supplied null"),
-								s.currentContext()));
+				EmptySubscription.error(new NullPointerException("Deferred supplied null"), s);
 				return;
 			}
 
 			if(f.isDone()){
 				if(f.isSuccess()){
-					Operators.complete(s);
+					EmptySubscription.complete(s);
 				}
 				else{
-					Operators.error(s, f.cause());
+					EmptySubscription.error(f.cause(), s);
 				}
 				return;
 			}
@@ -134,10 +131,10 @@ public abstract class FutureMono extends Mono<Void> {
 	                                                GenericFutureListener<F>,
 	                                                Subscription {
 
-		final CoreSubscriber<? super Void> s;
+		final Subscriber<? super Void> s;
 		final F                        future;
 
-		FutureSubscription(F future, CoreSubscriber<? super Void> s) {
+		FutureSubscription(F future, Subscriber<? super Void> s) {
 			this.s = s;
 			this.future = future;
 		}

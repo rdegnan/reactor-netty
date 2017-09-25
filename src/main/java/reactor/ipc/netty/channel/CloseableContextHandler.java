@@ -20,18 +20,16 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.util.Objects;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.MonoSink;
-import reactor.ipc.netty.FutureMono;
+import io.reactivex.MaybeEmitter;
+import reactor.ipc.netty.FutureNono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.NettyOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @param <CHANNEL> the channel type
@@ -41,35 +39,32 @@ import reactor.util.Loggers;
 abstract class CloseableContextHandler<CHANNEL extends Channel>
 		extends ContextHandler<CHANNEL> implements ChannelFutureListener {
 
-	static final Logger log = Loggers.getLogger(CloseableContextHandler.class);
-
 	ChannelFuture f;
 
 	CloseableContextHandler(ChannelOperations.OnNew<CHANNEL> channelOpFactory,
 			NettyOptions<?, ?> options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			SocketAddress providedAddress) {
 		super(channelOpFactory, options, sink, loggingHandler, providedAddress);
 	}
 
 	@Override
-	protected Publisher<Void> onCloseOrRelease(Channel channel) {
-		return FutureMono.from(channel.closeFuture());
+	protected Nono onCloseOrRelease(Channel channel) {
+		return FutureNono.from(channel.closeFuture());
 	}
 
 	@Override
 	public final void operationComplete(ChannelFuture f) throws Exception {
 		if (!f.isSuccess()) {
 			if(f.isCancelled()){
-				log.debug("Cancelled {}", f.channel().toString());
 				return;
 			}
 			if (f.cause() != null) {
-				sink.error(f.cause());
+				sink.onError(f.cause());
 			}
 			else {
-				sink.error(new IOException("error while connecting to " + f.channel()
+				sink.onError(new IOException("error while connecting to " + f.channel()
 				                                                           .toString()));
 			}
 		}
@@ -85,9 +80,6 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 		if (this.f != null) {
 			future.cancel(true);
 			return;
-		}
-		if(log.isDebugEnabled()){
-			log.debug("Connecting new channel: {}", future.toString());
 		}
 		this.f = (ChannelFuture) future;
 
@@ -117,5 +109,10 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 		else if (!f.isDone()) {
 			f.cancel(true);
 		}
+	}
+
+	@Override
+	public boolean isDisposed() {
+		return false;
 	}
 }

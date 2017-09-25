@@ -17,13 +17,13 @@
 package reactor.ipc.netty.http;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
 import org.junit.Assert;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureNono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
@@ -41,25 +41,25 @@ public class HttpErrorTests {
 				                                "/",
 				                                (httpServerRequest, httpServerResponse) -> {
 					                                return httpServerResponse.sendString(
-							                                Mono.error(new IllegalArgumentException()));
+							                                Flowable.error(new IllegalArgumentException()));
 				                                }))
-		                                .block(Duration.ofSeconds(30));
+		                                .blockingGet(30, TimeUnit.SECONDS);
 
 		HttpClient client = HttpClient.create(opt -> opt.host("localhost")
 		                                                .port(server.address().getPort())
 		                                                .disablePool());
 
 		HttpClientResponse r = client.get("/")
-		                             .block(Duration.ofSeconds(30));
+		                             .blockingGet(30, TimeUnit.SECONDS);
 
 		List<String> result = r.receive()
 		                    .asString(StandardCharsets.UTF_8)
-		                    .collectList()
-		                    .block(Duration.ofSeconds(30));
+		                    .toList()
+		                    .blockingGet();
 
 		System.out.println("END");
 
-		FutureMono.from(r.context().channel().closeFuture()).block(Duration.ofSeconds(30));
+		FutureNono.from(r.context().channel().closeFuture()).blockingAwait(30, TimeUnit.SECONDS);
 
 		Assert.assertTrue(result.isEmpty());
 		Assert.assertTrue(r.isDisposed());

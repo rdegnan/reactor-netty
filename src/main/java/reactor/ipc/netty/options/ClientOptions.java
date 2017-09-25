@@ -36,7 +36,7 @@ import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.NetUtil;
-import reactor.core.Exceptions;
+import io.reactivex.exceptions.Exceptions;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -118,8 +118,8 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 	}
 
 	@Override
-	public Bootstrap get() {
-		Bootstrap b = super.get();
+	public Bootstrap call() {
+		Bootstrap b = super.call();
 		groupAndChannel(b);
 		return b;
 	}
@@ -286,7 +286,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		public final BUILDER resolver(AddressResolverGroup<?> resolver) {
 			Objects.requireNonNull(resolver, "resolver");
 			this.bootstrapTemplate.resolver(resolver);
-			return get();
+			return call();
 		}
 
 		/**
@@ -299,7 +299,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER poolResources(PoolResources poolResources) {
 			this.poolResources = Objects.requireNonNull(poolResources, "poolResources");
-			return get();
+			return call();
 		}
 
 		/**
@@ -309,7 +309,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public BUILDER disablePool() {
 			this.poolResources = null;
-			return get();
+			return call();
 		}
 
 		/**
@@ -321,7 +321,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER protocolFamily(InternetProtocolFamily protocolFamily) {
 			this.protocolFamily = Objects.requireNonNull(protocolFamily, "protocolFamily");
-			return get();
+			return call();
 		}
 
 		/**
@@ -350,7 +350,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 				return sslContext(builder.build());
 			}
 			catch (Exception sslException) {
-				throw Exceptions.bubble(sslException);
+				throw Exceptions.propagate(sslException);
 			}
 		}
 
@@ -367,7 +367,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 			else {
 				this.host = host;
 			}
-			return get();
+			return call();
 		}
 
 		/**
@@ -378,7 +378,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER port(int port) {
 			this.port = Objects.requireNonNull(port, "port");
-			return get();
+			return call();
 		}
 
 		/**
@@ -389,7 +389,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER connectAddress(Supplier<? extends SocketAddress> connectAddressSupplier) {
 			this.connectAddress = Objects.requireNonNull(connectAddressSupplier, "connectAddressSupplier");
-			return get();
+			return call();
 		}
 
 		/**
@@ -405,7 +405,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 			if(bootstrapTemplate.config().resolver() == DefaultAddressResolverGroup.INSTANCE) {
 				resolver(NoopAddressResolverGroup.INSTANCE);
 			}
-			return get();
+			return call();
 		}
 
 		@Override
@@ -415,12 +415,12 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 			this.connectAddress = options.connectAddress;
 			this.poolResources = options.poolResources;
 			this.protocolFamily = options.protocolFamily;
-			return get();
+			return call();
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public BUILDER get() {
+		public BUILDER call() {
 			return (BUILDER) this;
 		}
 

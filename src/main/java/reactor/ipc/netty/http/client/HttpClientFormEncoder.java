@@ -36,8 +36,9 @@ import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import io.netty.handler.codec.http.multipart.MemoryFileUpload;
 import io.netty.handler.stream.ChunkedInput;
-import reactor.core.Exceptions;
-import reactor.core.publisher.DirectProcessor;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Action;
+import io.reactivex.processors.PublishProcessor;
 
 /**
  * Modified {@link io.netty.handler.codec.http.multipart.HttpPostRequestEncoder} for
@@ -46,9 +47,9 @@ import reactor.core.publisher.DirectProcessor;
  * This encoder will help to encode Request for a FORM as POST.
  */
 final class HttpClientFormEncoder extends HttpPostRequestEncoder
-		implements ChunkedInput<HttpContent>, Runnable, HttpClientRequest.Form {
+		implements ChunkedInput<HttpContent>, Action, HttpClientRequest.Form {
 
-	final DirectProcessor<Long> progressFlux;
+	final PublishProcessor<Long> progressFlux;
 	final HttpRequest request;
 
 	boolean         needNewEncoder;
@@ -80,7 +81,7 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 		this.request = request;
 		this.isKey = true;
 		this.cleanOnTerminate = true;
-		this.progressFlux = DirectProcessor.create();
+		this.progressFlux = PublishProcessor.create();
 		this.newMode = encoderMode;
 		this.newFactory = factory;
 		this.newMultipart = multipart;

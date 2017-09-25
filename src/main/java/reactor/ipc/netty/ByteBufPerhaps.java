@@ -22,35 +22,34 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
-import reactor.core.CoreSubscriber;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoOperator;
+import org.reactivestreams.Subscriber;
 
 /**
- * A decorating {@link Mono} {@link NettyInbound} with various {@link ByteBuf} related
+ * A decorating {@link Perhaps} {@link NettyInbound} with various {@link ByteBuf} related
  * operations.
  *
  * @author Stephane Maldini
  */
-public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
+public final class ByteBufPerhaps extends Perhaps<ByteBuf> {
 
 	/**
-	 * a {@link ByteBuffer} inbound {@link Mono}
+	 * a {@link ByteBuffer} inbound {@link Perhaps}
 	 *
-	 * @return a {@link ByteBuffer} inbound {@link Mono}
+	 * @return a {@link ByteBuffer} inbound {@link Perhaps}
 	 */
-	public final Mono<ByteBuffer> asByteBuffer() {
+	public final Perhaps<ByteBuffer> asByteBuffer() {
 		return map(ByteBuf::nioBuffer);
 	}
 
 	/**
-	 * a {@literal byte[]} inbound {@link Mono}
+	 * a {@literal byte[]} inbound {@link Perhaps}
 	 *
-	 * @return a {@literal byte[]} inbound {@link Mono}
+	 * @return a {@literal byte[]} inbound {@link Perhaps}
 	 */
-	public final Mono<byte[]> asByteArray() {
+	public final Perhaps<byte[]> asByteArray() {
 		return map(bb -> {
 			byte[] bytes = new byte[bb.readableBytes()];
 			bb.readBytes(bytes);
@@ -59,31 +58,31 @@ public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
 	}
 
 	/**
-	 * a {@link String} inbound {@link Mono}
+	 * a {@link String} inbound {@link Perhaps}
 	 *
-	 * @return a {@link String} inbound {@link Mono}
+	 * @return a {@link String} inbound {@link Perhaps}
 	 */
-	public final Mono<String> asString() {
+	public final Perhaps<String> asString() {
 		return asString(Charset.defaultCharset());
 	}
 
 	/**
-	 * a {@link String} inbound {@link Mono}
+	 * a {@link String} inbound {@link Perhaps}
 	 *
 	 * @param charset the decoding charset
 	 *
-	 * @return a {@link String} inbound {@link Mono}
+	 * @return a {@link String} inbound {@link Perhaps}
 	 */
-	public final Mono<String> asString(Charset charset) {
+	public final Perhaps<String> asString(Charset charset) {
 		return map(s -> s.toString(charset));
 	}
 
 	/**
-	 * Convert to an {@link InputStream} inbound {@link Mono}
+	 * Convert to an {@link InputStream} inbound {@link Perhaps}
 	 *
-	 * @return a {@link InputStream} inbound {@link Mono}
+	 * @return a {@link InputStream} inbound {@link Perhaps}
 	 */
-	public Mono<InputStream> asInputStream() {
+	public Perhaps<InputStream> asInputStream() {
 		return map(ReleasingInputStream::new);
 	}
 
@@ -91,19 +90,21 @@ public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
 	 * Disable auto memory release on each signal published in order to prevent premature
 	 * recycling when buffers are accumulated downstream (async).
 	 *
-	 * @return {@link ByteBufMono} of retained {@link ByteBuf}
+	 * @return {@link ByteBufPerhaps} of retained {@link ByteBuf}
 	 */
-	public ByteBufMono retain() {
-		return new ByteBufMono(doOnNext(ByteBuf::retain));
+	public ByteBufPerhaps retain() {
+		return new ByteBufPerhaps(doOnNext(ByteBuf::retain));
+	}
+
+	final Perhaps<ByteBuf> source;
+
+	protected ByteBufPerhaps(Perhaps<?> source) {
+		this.source = source.map(ByteBufFlowable.bytebufExtractor);
 	}
 
 	@Override
-	public void subscribe(CoreSubscriber<? super ByteBuf> actual) {
+	protected void subscribeActual(Subscriber<? super ByteBuf> actual) {
 		source.subscribe(actual);
-	}
-
-	protected ByteBufMono(Mono<?> source) {
-		super(source.map(ByteBufFlux.bytebufExtractor));
 	}
 
 	static final class ReleasingInputStream extends ByteBufInputStream {

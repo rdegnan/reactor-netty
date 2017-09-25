@@ -15,6 +15,7 @@
  */
 package reactor.ipc.netty.http.client;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -27,7 +28,6 @@ import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.Future;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -60,7 +60,7 @@ public class HttpClientOperationsTest {
 
 		@Override
 		protected Publisher<Void> onCloseOrRelease(Channel channel) {
-			return Mono.never();
+			return Nono.never();
 		}
 
 		@Override

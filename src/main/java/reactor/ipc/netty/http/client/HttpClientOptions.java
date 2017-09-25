@@ -179,7 +179,7 @@ public final class HttpClientOptions extends ClientOptions {
 		 */
 		public final Builder compression(boolean enabled) {
 			this.acceptGzip = enabled;
-			return get();
+			return call();
 		}
 
 		/**
@@ -190,7 +190,7 @@ public final class HttpClientOptions extends ClientOptions {
 		 */
 		public final Builder httpProxy(Function<ClientProxyOptions.AddressSpec, ClientProxyOptions.Builder> proxyOptions) {
 			super.proxy(t -> proxyOptions.apply(t.type(Proxy.HTTP)));
-			return get();
+			return call();
 		}
 
 		/**
@@ -202,7 +202,7 @@ public final class HttpClientOptions extends ClientOptions {
 		public final Builder from(HttpClientOptions options) {
 			super.from(options);
 			this.acceptGzip = options.acceptGzip;
-			return get();
+			return call();
 		}
 
 		@Override

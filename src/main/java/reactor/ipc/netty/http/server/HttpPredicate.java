@@ -21,13 +21,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import hu.akarnokd.rxjava2.functions.PlainFunction;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
+import io.reactivex.functions.Predicate;
 
 /**
  * A Predicate to match against ServerRequest
@@ -35,7 +35,7 @@ import io.netty.handler.codec.http.HttpVersion;
  * @author Stephane Maldini
  */
 final class HttpPredicate
-		implements Predicate<HttpServerRequest>, Function<Object, Map<String, String>> {
+		implements Predicate<HttpServerRequest>, PlainFunction<Object, Map<String, String>> {
 
 	/**
 	 * An alias for {@link HttpPredicate#http}.

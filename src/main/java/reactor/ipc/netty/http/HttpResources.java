@@ -17,9 +17,9 @@
 package reactor.ipc.netty.http;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 
-import reactor.core.publisher.Mono;
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.TcpResources;
@@ -83,17 +83,17 @@ public final class HttpResources extends TcpResources {
 	/**
 	 * Prepare to shutdown the global {@link TcpResources} without resetting them,
 	 * effectively cleaning up associated resources without creating new ones. This only
-	 * occurs when the returned {@link Mono} is subscribed to.
+	 * occurs when the returned {@link Nono} is subscribed to.
 	 *
-	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
+	 * @return a {@link Nono} triggering the {@link #shutdown()} when subscribed to.
 	 */
-	public static Mono<Void> shutdownLater() {
-		return Mono.defer(() -> {
+	public static Nono shutdownLater() {
+		return Nono.defer(() -> {
 			HttpResources resources = httpResources.getAndSet(null);
 			if (resources != null) {
 				return resources._disposeLater();
 			}
-			return Mono.empty();
+			return Nono.complete();
 		});
 	}
 
@@ -102,7 +102,7 @@ public final class HttpResources extends TcpResources {
 	}
 
 	static final AtomicReference<HttpResources>                          httpResources;
-	static final BiFunction<LoopResources, PoolResources, HttpResources> ON_HTTP_NEW;
+	static final PlainBiFunction<LoopResources, PoolResources, HttpResources> ON_HTTP_NEW;
 
 	static {
 		ON_HTTP_NEW = HttpResources::new;

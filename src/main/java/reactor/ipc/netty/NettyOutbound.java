@@ -25,8 +25,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
@@ -35,11 +36,10 @@ import io.netty.channel.DefaultFileRegion;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.channel.data.AbstractFileChunkedStrategy;
 import reactor.ipc.netty.channel.data.FileChunkedStrategy;
 
@@ -89,7 +89,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @return the {@link NettyContext}
 	 */
-	default NettyOutbound context(Consumer<NettyContext> contextCallback){
+	default NettyOutbound context(PlainConsumer<NettyContext> contextCallback){
 		contextCallback.accept(context());
 		return this;
 	}
@@ -99,14 +99,14 @@ public interface NettyOutbound extends Publisher<Void> {
 	}
 
 	/**
-	 * Return a never completing {@link Mono} after this {@link NettyOutbound#then()} has
+	 * Return a never completing {@link Nono} after this {@link NettyOutbound#then()} has
 	 * completed.
 	 *
-	 * @return a never completing {@link Mono} after this {@link NettyOutbound#then()} has
+	 * @return a never completing {@link Nono} after this {@link NettyOutbound#then()} has
 	 * completed.
 	 */
-	default Mono<Void> neverComplete() {
-		return then(Mono.never()).then();
+	default Nono neverComplete() {
+		return then(Nono.never()).then();
 	}
 
 	/**
@@ -134,7 +134,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @return {@code this} instance
 	 */
-	default NettyOutbound options(Consumer<? super NettyPipeline.SendOptions> configurator) {
+	default NettyOutbound options(PlainConsumer<? super NettyPipeline.SendOptions> configurator) {
 		context().channel()
 		         .pipeline()
 		         .fireUserEventTriggered(new NettyPipeline.SendOptionsChangeEvent(configurator, null));
@@ -167,7 +167,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * error during write
 	 */
 	default NettyOutbound sendByteArray(Publisher<? extends byte[]> dataStream) {
-		return send(Flux.from(dataStream)
+		return send(Flowable.fromPublisher(dataStream)
 		                .map(Unpooled::wrappedBuffer));
 	}
 
@@ -196,7 +196,7 @@ public interface NettyOutbound extends Publisher<Void> {
 			return sendFile(file, 0L, Files.size(file));
 		}
 		catch (IOException e) {
-			return then(Mono.error(e));
+			return then(Nono.error(e));
 		}
 	}
 
@@ -228,8 +228,8 @@ public interface NettyOutbound extends Publisher<Void> {
 			return sendFileChunked(file, position, count);
 		}
 
-		return then(Mono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
-				fc -> FutureMono.from(context().channel().writeAndFlush(new DefaultFileRegion(fc, position, count))),
+		return then(Nono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+				fc -> FutureNono.from(context().channel().writeAndFlush(new DefaultFileRegion(fc, position, count))),
 				fc -> {
 					try {
 						fc.close();
@@ -246,14 +246,14 @@ public interface NettyOutbound extends Publisher<Void> {
 			strategy.preparePipeline(context());
 		}
 
-		return then(Mono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+		return then(Nono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
 				fc -> {
 						try {
 							ChunkedInput<?> message = strategy.chunkFile(fc);
-							return FutureMono.from(context().channel().writeAndFlush(message));
+							return FutureNono.from(context().channel().writeAndFlush(message));
 						}
 						catch (Exception e) {
-							return Mono.error(e);
+							return Nono.error(e);
 						}
 				},
 				fc -> {
@@ -274,13 +274,12 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @param dataStreams the dataStream publishing OUT items to write on this channel
 	 *
-	 * @return A {@link Mono} to signal successful sequence write (e.g. after "flush") or
+	 * @return A {@link Nono} to signal successful sequence write (e.g. after "flush") or
 	 * any error during write
 	 */
 	default NettyOutbound sendGroups(Publisher<? extends Publisher<? extends ByteBuf>> dataStreams) {
-		return then(Flux.from(dataStreams)
-		           .concatMapDelayError(this::send, false, 32)
-		           .then());
+		return then(Nono.fromPublisher(Flowable.fromPublisher(dataStreams)
+		           .concatMapDelayError(this::send, 32, false)));
 	}
 
 	/**
@@ -294,7 +293,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * error during write
 	 */
 	default NettyOutbound sendObject(Publisher<?> dataStream) {
-		return then(FutureMono.deferFuture(() -> context().channel()
+		return then(FutureNono.deferFuture(() -> context().channel()
 		                                                  .writeAndFlush(dataStream)));
 	}
 
@@ -304,11 +303,11 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @param msg the object to publish
 	 *
-	 * @return A {@link Mono} to signal successful sequence write (e.g. after "flush") or
+	 * @return A {@link Nono} to signal successful sequence write (e.g. after "flush") or
 	 * any error during write
 	 */
 	default NettyOutbound sendObject(Object msg) {
-		return then(FutureMono.deferFuture(() -> context().channel()
+		return then(FutureNono.deferFuture(() -> context().channel()
 		                                                  .writeAndFlush(msg)));
 	}
 
@@ -339,7 +338,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 */
 	default NettyOutbound sendString(Publisher<? extends String> dataStream,
 			Charset charset) {
-		return sendObject(Flux.from(dataStream)
+		return sendObject(Flowable.fromPublisher(dataStream)
 		                      .map(s -> alloc()
 		                                   .buffer()
 		                                   .writeBytes(s.getBytes(charset))));
@@ -357,12 +356,12 @@ public interface NettyOutbound extends Publisher<Void> {
 	}
 
 	/**
-	 * Obtain a {@link Mono} of pending outbound(s) write completion.
+	 * Obtain a {@link Nono} of pending outbound(s) write completion.
 	 *
-	 * @return a {@link Mono} of pending outbound(s) write completion
+	 * @return a {@link Nono} of pending outbound(s) write completion
 	 */
-	default Mono<Void> then() {
-		return Mono.empty();
+	default Nono then() {
+		return Nono.complete();
 	}
 
 	/**

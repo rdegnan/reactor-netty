@@ -21,11 +21,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureNono;
 
 /**
  * An adapted global eventLoop handler.
@@ -92,8 +92,8 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.defer(() -> {
+	public Nono disposeLater() {
+		return Nono.defer(() -> {
 			EventLoopGroup cacheNativeClientGroup = cacheNativeClientLoops.get();
 			EventLoopGroup cacheNativeSelectGroup = cacheNativeSelectLoops.get();
 			EventLoopGroup cacheNativeServerGroup = cacheNativeServerLoops.get();
@@ -113,23 +113,23 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 				}
 			}
 
-			Mono<?> clMono = FutureMono.from((Future) clientLoops.terminationFuture());
-			Mono<?> sslMono = FutureMono.from((Future)serverSelectLoops.terminationFuture());
-			Mono<?> slMono = FutureMono.from((Future)serverLoops.terminationFuture());
-			Mono<?> cnclMono = Mono.empty();
+			Nono clNono = FutureNono.from((Future) clientLoops.terminationFuture());
+			Nono sslMono = FutureNono.from((Future)serverSelectLoops.terminationFuture());
+			Nono slMono = FutureNono.from((Future)serverLoops.terminationFuture());
+			Nono cnclMono = Nono.complete();
 			if(cacheNativeClientGroup != null){
-				cnclMono = FutureMono.from((Future) cacheNativeClientGroup.terminationFuture());
+				cnclMono = FutureNono.from((Future) cacheNativeClientGroup.terminationFuture());
 			}
-			Mono<?> cnslMono = Mono.empty();
+			Nono cnslMono = Nono.complete();
 			if(cacheNativeSelectGroup != null){
-				cnslMono = FutureMono.from((Future) cacheNativeSelectGroup.terminationFuture());
+				cnslMono = FutureNono.from((Future) cacheNativeSelectGroup.terminationFuture());
 			}
-			Mono<?> cnsrvlMono = Mono.empty();
+			Nono cnsrvlMono = Nono.complete();
 			if(cacheNativeServerGroup != null){
-				cnsrvlMono = FutureMono.from((Future) cacheNativeServerGroup.terminationFuture());
+				cnsrvlMono = FutureNono.from((Future) cacheNativeServerGroup.terminationFuture());
 			}
 
-			return Mono.zip(clMono, sslMono, slMono, cnclMono, cnslMono, cnsrvlMono).then();
+			return Nono.mergeArray(clNono, sslMono, slMono, cnclMono, cnslMono, cnsrvlMono);
 		});
 	}
 

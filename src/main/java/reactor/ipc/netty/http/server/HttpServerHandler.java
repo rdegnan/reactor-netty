@@ -16,8 +16,6 @@
 
 package reactor.ipc.netty.http.server;
 
-import java.util.Queue;
-
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -30,10 +28,11 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.HttpStatusClass;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.ReferenceCountUtil;
-import reactor.core.Exceptions;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.MissingBackpressureException;
+import io.reactivex.internal.queue.SpscLinkedArrayQueue;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.channel.ContextHandler;
-import reactor.util.concurrent.Queues;
 
 import static io.netty.handler.codec.http.HttpUtil.*;
 
@@ -52,7 +51,7 @@ final class HttpServerHandler extends ChannelDuplexHandler
 	// Track pending responses to support client pipelining: https://tools.ietf.org/html/rfc7230#section-6.3.2
 	int pendingResponses;
 
-	Queue<Object> pipelined;
+	SpscLinkedArrayQueue<Object> pipelined;
 
 	ChannelHandlerContext ctx;
 
@@ -67,9 +66,6 @@ final class HttpServerHandler extends ChannelDuplexHandler
 	public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
 		super.handlerAdded(ctx);
 		this.ctx = ctx;
-		if (HttpServerOperations.log.isDebugEnabled()) {
-			HttpServerOperations.log.debug("New http connection, requesting read");
-		}
 		ctx.read();
 	}
 
@@ -83,19 +79,9 @@ final class HttpServerHandler extends ChannelDuplexHandler
 				persistentConnection = isKeepAlive(request);
 			}
 			else {
-				if (HttpServerOperations.log.isDebugEnabled()) {
-					HttpServerOperations.log.debug("dropping pipelined HTTP request, " +
-									"previous response requested connection close");
-				}
 				return;
 			}
 			if (overflow || pendingResponses > 1) {
-				if (HttpServerOperations.log.isDebugEnabled()) {
-					HttpServerOperations.log.debug("buffering pipelined HTTP request, " +
-									"pending response count: {}, queue: {}",
-							pendingResponses,
-							pipelined != null ? pipelined.size() : 0);
-				}
 				overflow = true;
 				doPipeline(ctx, msg);
 				return;
@@ -110,12 +96,6 @@ final class HttpServerHandler extends ChannelDuplexHandler
 			}
 		}
 		else if (overflow) {
-			if (HttpServerOperations.log.isDebugEnabled()) {
-				HttpServerOperations.log.debug("buffering pipelined HTTP content, " +
-								"pending response count: {}, pending pipeline:{}",
-						pendingResponses,
-						pipelined != null ? pipelined.size() : 0);
-			}
 			doPipeline(ctx, msg);
 			return;
 		}
@@ -124,11 +104,10 @@ final class HttpServerHandler extends ChannelDuplexHandler
 
 	void doPipeline(ChannelHandlerContext ctx, Object msg) {
 		if (pipelined == null) {
-			pipelined = Queues.unbounded()
-			                  .get();
+			pipelined = new SpscLinkedArrayQueue<>(Flowable.bufferSize());
 		}
 		if (!pipelined.offer(msg)) {
-			ctx.fireExceptionCaught(Exceptions.failWithOverflow());
+			ctx.fireExceptionCaught(new MissingBackpressureException());
 		}
 	}
 
@@ -152,10 +131,6 @@ final class HttpServerHandler extends ChannelDuplexHandler
 		}
 		if (msg instanceof LastHttpContent) {
 			if (!shouldKeepAlive()) {
-				if (HttpServerOperations.log.isDebugEnabled()) {
-					HttpServerOperations.log.debug("Detected non persistent http " + "connection," + " " + "preparing to close",
-							pendingResponses);
-				}
 				promise.addListener(ChannelFutureListener.CLOSE);
 			}
 		}
@@ -175,12 +150,6 @@ final class HttpServerHandler extends ChannelDuplexHandler
 			}
 
 			if (pipelined != null && !pipelined.isEmpty()) {
-				if (HttpServerOperations.log.isDebugEnabled()) {
-					HttpServerOperations.log.debug("draining next pipelined " +
-									"request," + " pending response count: {}, queued: " +
-									"{}",
-							pendingResponses, pipelined.size());
-				}
 				ctx.executor()
 				   .execute(this);
 			}

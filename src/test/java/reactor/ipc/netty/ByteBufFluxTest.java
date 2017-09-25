@@ -28,7 +28,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 
 /**
- * Unit tests for {@link ByteBufFlux}
+ * Unit tests for {@link ByteBufFlowable}
  *
  * @author Silvano Riz
  */
@@ -58,7 +58,7 @@ public class ByteBufFluxTest {
         Assert.assertEquals(data.length, Files.size(tmpFile));
 
         // Use the ByteBufFlux to read the file in chunks of 3 bytes max and write them into a ByteArrayOutputStream for verification
-        final Iterator<ByteBuf> it = ByteBufFlux.fromPath(tmpFile, chunkSize).toIterable().iterator();
+        final Iterator<ByteBuf> it = ByteBufFlowable.fromPath(tmpFile, chunkSize).blockingIterable().iterator();
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         while (it.hasNext()) {
             ByteBuf bb = it.next();

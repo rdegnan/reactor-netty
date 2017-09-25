@@ -17,6 +17,7 @@ package reactor.ipc.netty.resources;
 
 import java.util.Objects;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
@@ -24,8 +25,7 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
+import io.reactivex.disposables.Disposable;
 
 /**
  * An {@link EventLoopGroup} selector with associated
@@ -221,12 +221,17 @@ public interface LoopResources extends Disposable {
 		disposeLater().subscribe();
 	}
 
-	/**
+  @Override
+  default boolean isDisposed() {
+	  return false;
+  }
+
+  /**
 	 * Returns a Mono that triggers the disposal of underlying resources when subscribed to.
 	 *
 	 * @return a Mono representing the completion of resources disposal.
 	 **/
-	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+	default Nono disposeLater() {
+		return Nono.complete(); //noop default
 	}
 }

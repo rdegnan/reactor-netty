@@ -18,14 +18,15 @@ package reactor.ipc.netty.http.client;
 
 import java.util.function.BiFunction;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Action;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.ByteBufFlux;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.http.HttpInfos;
@@ -76,7 +77,7 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	HttpClientResponse replaceHandler(String name, ChannelHandler handler);
 
 	@Override
-	HttpClientResponse onClose(Runnable onClose);
+	HttpClientResponse onClose(Action onClose);
 
 	@Override
 	default HttpClientResponse onReadIdle(long idleTimeout, Runnable onReadIdle) {
@@ -85,11 +86,11 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	}
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
-	default Flux<HttpContent> receiveContent(){
+	default Flowable<HttpContent> receiveContent(){
 		return receiveObject().ofType(HttpContent.class);
 	}
 
@@ -105,28 +106,28 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
 	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * otherwise the returned {@link Nono} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Nono} completing when upgrade is confirmed
 	 */
-	default Mono<Void> receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Nono receiveWebsocket(PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return receiveWebsocket(null, websocketHandler);
 	}
 
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
 	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * otherwise the returned {@link Nono} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Nono} completing when upgrade is confirmed
 	 */
-	Mono<Void> receiveWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
+	Nono receiveWebsocket(String protocols,
+												PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
 
 	/**
 	 * Return the previous redirections or empty array

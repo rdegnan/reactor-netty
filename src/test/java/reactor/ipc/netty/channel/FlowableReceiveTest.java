@@ -15,20 +15,20 @@
  */
 package reactor.ipc.netty.channel;
 
-import java.time.Duration;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
+import io.reactivex.Flowable;
 import org.junit.Test;
 
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.server.HttpServer;
 
-public class FluxReceiveTest {
+public class FlowableReceiveTest {
 
 	@Test
 	public void testByteBufsReleasedWhenTimeout() {
@@ -42,9 +42,9 @@ public class FluxReceiveTest {
 				HttpServer.create(0)
 				          .newRouter(routes ->
 				                     routes.get("/target", (req, res) ->
-				                           res.sendByteArray(Flux.just(content)
-				                                                 .delayElements(Duration.ofMillis(100)))))
-				          .block(Duration.ofSeconds(30));
+				                           res.sendByteArray(Flowable.just(content)
+				                                                 .delay(100, TimeUnit.MILLISECONDS))))
+				          .blockingGet(30, TimeUnit.SECONDS);
 
 		NettyContext server2 =
 				HttpServer.create(0)
@@ -52,19 +52,18 @@ public class FluxReceiveTest {
 				                     routes.get("/forward", (req, res) ->
 				                           HttpClient.create(server1.address().getPort())
 				                                     .get("/target")
-				                                     .log()
-				                                     .delayElement(Duration.ofMillis(50))
+				                                     .delay(50, TimeUnit.MILLISECONDS)
 				                                     .flatMap(response -> response.receive().aggregate().asString())
-				                                     .timeout(Duration.ofMillis(50))
-				                                     .then()))
-				          .block(Duration.ofSeconds(30));
+				                                     .timeout(50, TimeUnit.MILLISECONDS)
+				                                     .ignoreElement()))
+				          .blockingGet(30, TimeUnit.SECONDS);
 
-		Flux.range(0, 50)
+		Flowable.range(0, 50)
 		    .flatMap(i -> HttpClient.create(server2.address().getPort())
 		                            .get("/forward")
-		                            .log()
-		                            .onErrorResume(t -> Mono.empty()))
-		    .blockLast(Duration.ofSeconds(30));
+		                            .onErrorResumeNext(t -> Perhaps.empty()))
+		    .ignoreElements()
+				.blockingAwait(30, TimeUnit.SECONDS);
 
 		ResourceLeakDetector.setLevel(Level.SIMPLE);
 	}

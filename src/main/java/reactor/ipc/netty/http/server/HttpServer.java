@@ -17,10 +17,10 @@
 package reactor.ipc.netty.http.server;
 
 import java.util.Objects;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpRequestDecoder;
@@ -28,9 +28,9 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 
+import io.reactivex.MaybeEmitter;
+import io.reactivex.functions.BiConsumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -69,7 +69,7 @@ public final class HttpServer
 	 * @param options the options for the server, including bind address and port.
 	 * @return a simple HTTP server
 	 */
-	public static HttpServer create(Consumer<? super HttpServerOptions.Builder> options) {
+	public static HttpServer create(PlainConsumer<? super HttpServerOptions.Builder> options) {
 		return builder().options(options).build();
 	}
 
@@ -149,19 +149,19 @@ public final class HttpServer
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Mono<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
+	public Perhaps<? extends NettyContext> newHandler(PlainBiFunction<? super HttpServerRequest, ? super
 			HttpServerResponse, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(handler, "handler");
-		return server.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) handler);
+		return server.newHandler((PlainBiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) handler);
 	}
 
 	/**
 	 * Define routes for the server through the provided {@link HttpServerRoutes} builder.
 	 *
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
-	 * @return a new {@link Mono} starting the router on subscribe
+	 * @return a new {@link Perhaps} starting the router on subscribe
 	 */
-	public Mono<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
+	public Perhaps<? extends NettyContext> newRouter(PlainConsumer<? super HttpServerRoutes>
 			routesBuilder) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
@@ -178,7 +178,7 @@ public final class HttpServer
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
 	 * @return a {@link BlockingNettyContext}
 	 */
-	public BlockingNettyContext startRouter(Consumer<? super HttpServerRoutes> routesBuilder) {
+	public BlockingNettyContext startRouter(PlainConsumer<? super HttpServerRoutes> routesBuilder) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
 		routesBuilder.accept(routes);
@@ -198,7 +198,7 @@ public final class HttpServer
 	 *
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
 	 */
-	public void startRouterAndAwait(Consumer<? super HttpServerRoutes> routesBuilder) {
+	public void startRouterAndAwait(PlainConsumer<? super HttpServerRoutes> routesBuilder) {
 		startRouterAndAwait(routesBuilder, null);
 	}
 
@@ -216,8 +216,8 @@ public final class HttpServer
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
 	 * @param onStart an optional callback to be invoked once the server has finished initializing.
 	 */
-	public void startRouterAndAwait(Consumer<? super HttpServerRoutes> routesBuilder,
-			Consumer<BlockingNettyContext> onStart) {
+	public void startRouterAndAwait(PlainConsumer<? super HttpServerRoutes> routesBuilder,
+																	PlainConsumer<BlockingNettyContext> onStart) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
 		routesBuilder.accept(routes);
@@ -235,8 +235,8 @@ public final class HttpServer
 
 		@Override
 		protected ContextHandler<Channel> doHandler(
-				BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-				MonoSink<NettyContext> sink) {
+				PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+				MaybeEmitter<NettyContext> sink) {
 			return ContextHandler.newServerContext(sink,
 					options,
 					loggingHandler,
@@ -266,7 +266,7 @@ public final class HttpServer
 	public static final class Builder {
 		private String bindAddress = NetUtil.LOCALHOST.getHostAddress();
 		private int port = 8080;
-		private Consumer<? super HttpServerOptions.Builder> options;
+		private PlainConsumer<? super HttpServerOptions.Builder> options;
 
 		private Builder() {
 		}
@@ -299,7 +299,7 @@ public final class HttpServer
 		 * @param options the options for the server, including bind address and port.
 		 * @return {@code this}
 		 */
-		public final Builder options(Consumer<? super HttpServerOptions.Builder> options) {
+		public final Builder options(PlainConsumer<? super HttpServerOptions.Builder> options) {
 			this.options = Objects.requireNonNull(options, "options");
 			return this;
 		}

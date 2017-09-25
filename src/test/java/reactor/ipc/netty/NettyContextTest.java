@@ -18,7 +18,6 @@ package reactor.ipc.netty;
 
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
@@ -30,6 +29,8 @@ import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.websocketx.Utf8FrameValidator;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.BiConsumer;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -421,7 +422,7 @@ public class NettyContextTest {
 			}
 
 			@Override
-			public NettyContext onClose(Runnable onClose) {
+			public NettyContext onClose(Action onClose) {
 				closeCount.incrementAndGet();
 				return this;
 			}
@@ -451,7 +452,7 @@ public class NettyContextTest {
 			}
 
 			@Override
-			public NettyContext onClose(Runnable onClose) {
+			public NettyContext onClose(Action onClose) {
 				closeCount.incrementAndGet();
 				return this;
 			}

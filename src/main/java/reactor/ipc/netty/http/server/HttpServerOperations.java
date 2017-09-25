@@ -22,10 +22,11 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
+import hu.akarnokd.rxjava2.functions.PlainFunction;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -48,10 +49,9 @@ import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureNono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -59,8 +59,6 @@ import reactor.ipc.netty.http.Cookies;
 import reactor.ipc.netty.http.HttpOperations;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
 
@@ -74,7 +72,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@SuppressWarnings("unchecked")
 	static HttpServerOperations bindHttp(Channel channel,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
 			ContextHandler<?> context,
 			Object msg) {
 		return new HttpServerOperations(channel, handler, context, (HttpRequest) msg);
@@ -85,7 +83,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	final Cookies     cookieHolder;
 	final HttpRequest nettyRequest;
 
-	Function<? super String, Map<String, String>> paramsResolver;
+	PlainFunction<? super String, Map<String, String>> paramsResolver;
 
 	HttpServerOperations(Channel ch, HttpServerOperations replaced) {
 		super(ch, replaced);
@@ -97,7 +95,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	HttpServerOperations(Channel ch,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+			PlainBiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
 			ContextHandler<?> context,
 			HttpRequest nettyRequest) {
 		super(ch, handler, context);
@@ -111,7 +109,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public HttpServerOperations context(Consumer<NettyContext> contextCallback) {
+	public HttpServerOperations context(PlainConsumer<NettyContext> contextCallback) {
 		contextCallback.accept(context());
 		return this;
 	}
@@ -229,21 +227,21 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public HttpServerRequest paramsResolver(Function<? super String, Map<String, String>> headerResolver) {
+	public HttpServerRequest paramsResolver(PlainFunction<? super String, Map<String, String>> headerResolver) {
 		this.paramsResolver = headerResolver;
 		return this;
 	}
 
 	@Override
-	public Flux<?> receiveObject() {
+	public Flowable<?> receiveObject() {
 		// Handle the 'Expect: 100-continue' header if necessary.
 		// TODO: Respond with 413 Request Entity Too Large
 		//   and discard the traffic or close the connection.
 		//       No need to notify the upstream handlers - just log.
 		//       If decoding a response, just throw an error.
 		if (HttpUtil.is100ContinueExpected(nettyRequest)) {
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(CONTINUE))
-			                 .thenMany(super.receiveObject());
+			return FutureNono.deferFuture(() -> channel().writeAndFlush(CONTINUE))
+			                 .andThen(super.receiveObject());
 		}
 		else {
 			return super.receiveObject();
@@ -264,13 +262,13 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> send() {
+	public Nono send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage response = newFullEmptyBodyMessage();
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(response));
+			return FutureNono.deferFuture(() -> channel().writeAndFlush(response));
 		}
 		else {
-			return Mono.empty();
+			return Nono.complete();
 		}
 	}
 
@@ -280,21 +278,18 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 			return sendFile(file, 0L, Files.size(file));
 		}
 		catch (IOException e) {
-			if (log.isDebugEnabled()) {
-				log.debug("Path not resolved", e);
-			}
 			return then(sendNotFound());
 		}
 	}
 
 	@Override
-	public Mono<Void> sendNotFound() {
+	public Nono sendNotFound() {
 		return this.status(HttpResponseStatus.NOT_FOUND)
 		           .send();
 	}
 
 	@Override
-	public Mono<Void> sendRedirect(String location) {
+	public Nono sendRedirect(String location) {
 		Objects.requireNonNull(location, "location");
 		return this.status(HttpResponseStatus.FOUND)
 		           .header(HttpHeaderNames.LOCATION, location)
@@ -328,8 +323,8 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> sendWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	public Nono sendWebsocket(String protocols,
+			PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return withWebsocketSupport(uri(), protocols, websocketHandler);
 	}
 
@@ -384,14 +379,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		}
 
 		final ChannelFuture f;
-		if (log.isDebugEnabled()) {
-			log.debug("Last HTTP response frame");
-		}
 		if (markSentHeaderAndBody()) {
-			if (log.isDebugEnabled()) {
-				log.debug("No sendHeaders() called before complete, sending " + "zero-length header");
-			}
-
 			f = channel().writeAndFlush(newFullEmptyBodyMessage());
 		}
 		else if (markSentBody()) {
@@ -403,9 +391,6 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		f.addListener(s -> {
 			if (isInboundDone()) {
 				onHandlerTerminate();
-			}
-			if (!s.isSuccess() && log.isDebugEnabled()) {
-				log.error("Failed flushing last frame", s.cause());
 			}
 		});
 	}
@@ -420,8 +405,6 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 		discreteRemoteClose(err);
 		if (markSentHeaders()) {
-			log.error("Error starting response. Replying error status", err);
-
 			HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
 					HttpResponseStatus.INTERNAL_SERVER_ERROR);
 			response.headers()
@@ -446,26 +429,22 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		return nettyResponse;
 	}
 
-	final Mono<Void> withWebsocketSupport(String url,
-			String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	final Nono withWebsocketSupport(String url,
+																	String protocols,
+																	PlainBiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		Objects.requireNonNull(websocketHandler, "websocketHandler");
 		if (markSentHeaders()) {
 			HttpServerWSOperations ops = new HttpServerWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				return FutureMono.from(ops.handshakerResult)
-				                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(ops, ops))))
-				                 .doAfterSuccessOrError(ops);
+				return FutureNono.from(ops.handshakerResult)
+				                 .andThen(Nono.defer(() -> Nono.fromPublisher(websocketHandler.apply(ops, ops))))
+				                 .doOnComplete(ops)
+				                 .doOnError(ops::onOutboundError);
 			}
 		}
-		else {
-			log.error("Cannot enable websocket if headers have already been sent");
-		}
-		return Mono.error(new IllegalStateException("Failed to upgrade to websocket"));
+		return Nono.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
-
-	static final Logger log = Loggers.getLogger(HttpServerOperations.class);
 
 	final static AsciiString      EVENT_STREAM = new AsciiString("text/event-stream");
 	final static FullHttpResponse CONTINUE     =

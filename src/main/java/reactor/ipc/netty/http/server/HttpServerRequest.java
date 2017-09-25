@@ -17,12 +17,12 @@
 package reactor.ipc.netty.http.server;
 
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
+import hu.akarnokd.rxjava2.functions.PlainFunction;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
-import reactor.core.publisher.Flux;
+import io.reactivex.Flowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -44,7 +44,7 @@ public interface HttpServerRequest extends NettyInbound, HttpInfos {
 	}
 
 	@Override
-	default HttpServerRequest context(Consumer<NettyContext> contextCallback) {
+	default HttpServerRequest context(PlainConsumer<NettyContext> contextCallback) {
 		NettyInbound.super.context(contextCallback);
 		return this;
 	}
@@ -70,14 +70,14 @@ public interface HttpServerRequest extends NettyInbound, HttpInfos {
 	 *
 	 * @return this request
 	 */
-	HttpServerRequest paramsResolver(Function<? super String, Map<String, String>> headerResolver);
+	HttpServerRequest paramsResolver(PlainFunction<? super String, Map<String, String>> headerResolver);
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
-	default Flux<HttpContent> receiveContent() {
+	default Flowable<HttpContent> receiveContent() {
 		return receiveObject().ofType(HttpContent.class);
 	}
 

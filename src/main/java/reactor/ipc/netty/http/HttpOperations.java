@@ -23,6 +23,8 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.function.BiFunction;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.channel.Channel;
@@ -40,14 +42,9 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
+import io.reactivex.exceptions.Exceptions;
 import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
-import reactor.ipc.netty.NettyContext;
-import reactor.ipc.netty.NettyInbound;
-import reactor.ipc.netty.NettyOutbound;
-import reactor.ipc.netty.NettyPipeline;
+import reactor.ipc.netty.*;
 import reactor.ipc.netty.channel.AbortedException;
 import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -76,7 +73,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	protected HttpOperations(Channel ioChannel,
-			BiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>> handler,
+			PlainBiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>> handler,
 			ContextHandler<?> context) {
 		super(ioChannel, handler, context);
 		//reset channel to manual read if re-used
@@ -121,7 +118,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 			else {
 				message = outboundHttpMessage();
 			}
-			return then(FutureMono.deferFuture(() -> {
+			return then(FutureNono.deferFuture(() -> {
 				if(!channel().isActive()){
 					throw new AbortedException();
 				}
@@ -134,7 +131,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	@Override
-	public Mono<Void> then() {
+	public Nono then() {
 		if (markSentHeaders()) {
 			if (HttpUtil.isContentLengthSet(outboundHttpMessage())) {
 				outboundHttpMessage().headers()
@@ -146,10 +143,10 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 				markPersistent(false);
 			}
 
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
+			return FutureNono.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
 		}
 		else {
-			return Mono.empty();
+			return Nono.complete();
 		}
 	}
 

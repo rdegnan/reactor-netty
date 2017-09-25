@@ -36,6 +36,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketClientHandshakerFactory;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
+import io.reactivex.functions.Action;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
@@ -45,7 +46,7 @@ import reactor.ipc.netty.http.websocket.WebsocketOutbound;
  * @author Simon Baslé
  */
 final class HttpClientWSOperations extends HttpClientOperations
-		implements WebsocketInbound, WebsocketOutbound, BiConsumer<Void, Throwable> {
+		implements WebsocketInbound, WebsocketOutbound, Action {
 
 	final WebSocketClientHandshaker handshaker;
 	final ChannelPromise            handshakerResult;
@@ -174,10 +175,6 @@ final class HttpClientWSOperations extends HttpClientOperations
 		}
 		if (msg instanceof CloseWebSocketFrame &&
 				((CloseWebSocketFrame)msg).isFinalFragment()) {
-			if (log.isDebugEnabled()) {
-				log.debug("CloseWebSocketFrame detected. Closing Websocket");
-			}
-
 			CloseWebSocketFrame close = (CloseWebSocketFrame) msg;
 			sendClose(new CloseWebSocketFrame(true,
 					close.rsv(),
@@ -195,9 +192,6 @@ final class HttpClientWSOperations extends HttpClientOperations
 
 	@Override
 	protected void onInboundCancel() {
-		if (log.isDebugEnabled()) {
-			log.debug("Cancelling Websocket inbound. Closing Websocket");
-		}
 		sendClose(null);
 	}
 
@@ -225,17 +219,9 @@ final class HttpClientWSOperations extends HttpClientOperations
 	}
 
 	@Override
-	public void accept(Void aVoid, Throwable throwable) {
-		if (log.isDebugEnabled()) {
-			log.debug("Handler terminated. Closing Websocket");
-		}
-		if (throwable == null) {
-			if (channel().isActive()) {
-				sendClose(null);
-			}
-		}
-		else {
-			onOutboundError(throwable);
+	public void run() throws Exception {
+		if (channel().isActive()) {
+			sendClose(null);
 		}
 	}
 

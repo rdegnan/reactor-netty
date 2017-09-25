@@ -17,14 +17,14 @@
 package reactor.ipc.netty.http.websocket;
 
 import java.nio.charset.Charset;
-import java.util.function.Function;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Function;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
 import reactor.ipc.netty.NettyOutbound;
 
 /**
@@ -46,18 +46,18 @@ public interface WebsocketOutbound extends NettyOutbound {
 
 	@Override
 	default NettyOutbound send(Publisher<? extends ByteBuf> dataStream) {
-		return sendObject(Flux.from(dataStream)
+		return sendObject(Flowable.fromPublisher(dataStream)
 		                      .map(bytebufToWebsocketFrame));
 	}
 
 	@Override
 	default NettyOutbound sendString(Publisher<? extends String> dataStream,
 			Charset charset) {
-		return sendObject(Flux.from(dataStream)
+		return sendObject(Flowable.fromPublisher(dataStream)
 		                      .map(stringToWebsocketFrame));
 	}
 
-	Function<? super String, ? extends WebSocketFrame>  stringToWebsocketFrame  =
+	Function<? super String, ? extends WebSocketFrame> stringToWebsocketFrame  =
 			TextWebSocketFrame::new;
 	Function<? super ByteBuf, ? extends WebSocketFrame> bytebufToWebsocketFrame =
 			BinaryWebSocketFrame::new;

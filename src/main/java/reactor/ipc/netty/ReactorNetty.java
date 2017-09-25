@@ -17,8 +17,8 @@ package reactor.ipc.netty;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.channel.Channel;
@@ -29,10 +29,8 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import io.reactivex.functions.BiConsumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * Internal helpers for reactor-netty contracts
@@ -65,9 +63,6 @@ final class ReactorNetty {
 		boolean exists = channel.pipeline().get(name) != null;
 
 		if (exists) {
-			if (log.isDebugEnabled()) {
-				log.debug("Handler [{}] already exists in the pipeline, decoder has been skipped", name);
-			}
 			return;
 		}
 
@@ -88,12 +83,6 @@ final class ReactorNetty {
 		}
 
 		registerForClose(shouldCleanupOnClose(channel),  name, context);
-
-		if (log.isDebugEnabled()) {
-			log.debug("Added decoder [{}] at the end of the user pipeline, full pipeline: {}",
-					name,
-					channel.pipeline().names());
-		}
 	}
 
 	/**
@@ -119,9 +108,6 @@ final class ReactorNetty {
 		boolean exists = channel.pipeline().get(name) != null;
 
 		if (exists) {
-			if (log.isDebugEnabled()) {
-				log.debug("Handler [{}] already exists in the pipeline, encoder has been skipped", name);
-			}
 			return;
 		}
 
@@ -141,12 +127,6 @@ final class ReactorNetty {
 		}
 
 		registerForClose(shouldCleanupOnClose(channel), name, context);
-
-		if (log.isDebugEnabled()) {
-			log.debug("Added encoder [{}] at the beginning of the user pipeline, full pipeline: {}",
-					name,
-					channel.pipeline().names());
-		}
 	}
 
 	static void registerForClose(boolean shouldCleanupOnClose,
@@ -161,20 +141,6 @@ final class ReactorNetty {
 		                                 .context(name) != null) {
 			channel.pipeline()
 			       .remove(name);
-			if (log.isDebugEnabled()) {
-				log.debug("{} Removed handler: {}, pipeline: {}",
-						channel,
-						name,
-						channel.pipeline());
-			}
-		}
-		else if (log.isDebugEnabled()) {
-			log.debug(" Non Removed handler: {}, context: {}, pipeline: {}",
-					channel,
-					name,
-					channel.pipeline()
-					       .context(name),
-					channel.pipeline());
 		}
 	}
 
@@ -183,20 +149,6 @@ final class ReactorNetty {
 		                                 .context(name) != null) {
 			channel.pipeline()
 			       .replace(name, name, handler);
-			if (log.isDebugEnabled()) {
-				log.debug("{} Replaced handler: {}, pipeline: {}",
-						channel,
-						name,
-						channel.pipeline());
-			}
-		}
-		else if (log.isDebugEnabled()) {
-			log.debug(" Non Replaced handler: {}, context: {}, pipeline: {}",
-					channel,
-					name,
-					channel.pipeline()
-					       .context(name),
-					channel.pipeline());
 		}
 	}
 
@@ -239,18 +191,18 @@ final class ReactorNetty {
 	static final class OutboundThen implements NettyOutbound {
 
 		final NettyContext sourceContext;
-		final Mono<Void>   thenMono;
+		final Nono thenNono;
 
 		OutboundThen(NettyOutbound source, Publisher<Void> thenPublisher) {
 			this.sourceContext = source.context();
 
-			Mono<Void> parentMono = source.then();
+			Nono parentMono = source.then();
 
-			if (parentMono == Mono.<Void>empty()) {
-				this.thenMono = Mono.from(thenPublisher);
+			if (parentMono == Nono.complete()) {
+				this.thenNono = Nono.fromPublisher(thenPublisher);
 			}
 			else {
-				this.thenMono = parentMono.thenEmpty(thenPublisher);
+				this.thenNono = parentMono.andThen(Nono.fromPublisher(thenPublisher));
 			}
 		}
 
@@ -260,8 +212,8 @@ final class ReactorNetty {
 		}
 
 		@Override
-		public Mono<Void> then() {
-			return thenMono;
+		public Nono then() {
+			return thenNono;
 		}
 	}
 
@@ -305,7 +257,6 @@ final class ReactorNetty {
 
 	static final Object TERMINATED = new TerminatedHandlerEvent();
 	static final Object RESPONSE_WRITE_COMPLETED = new ResponseWriteCompleted();
-	static final Logger log        = Loggers.getLogger(ReactorNetty.class);
 
 	/**
 	 * A handler that can be used to extract {@link ByteBuf} out of {@link ByteBufHolder},

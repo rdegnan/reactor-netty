@@ -19,16 +19,16 @@ package reactor.ipc.netty.http.client;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -62,7 +62,7 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	HttpClientRequest addHeader(CharSequence name, CharSequence value);
 
 	@Override
-	default HttpClientRequest context(Consumer<NettyContext> contextCallback){
+	default HttpClientRequest context(PlainConsumer<NettyContext> contextCallback){
 		contextCallback.accept(context());
 		return this;
 	}
@@ -77,7 +77,7 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	HttpClientRequest chunkedTransfer(boolean chunked);
 
 	@Override
-	default HttpClientRequest options(Consumer<? super NettyPipeline.SendOptions> configurator){
+	default HttpClientRequest options(PlainConsumer<? super NettyPipeline.SendOptions> configurator){
 		NettyOutbound.super.options(configurator);
 		return this;
 	}
@@ -169,11 +169,11 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http request
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Nono} successful on committed response
 	 *
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send() {
+	default Nono send() {
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -184,9 +184,9 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	 *
 	 * @param formCallback called when form generator is created
 	 *
-	 * @return a {@link Flux} of latest in-flight or uploaded bytes,
+	 * @return a {@link Flowable} of latest in-flight or uploaded bytes,
 	 */
-	Flux<Long> sendForm(Consumer<Form> formCallback);
+	Flowable<Long> sendForm(PlainConsumer<Form> formCallback);
 
 	/**
 	 * Send the headers.

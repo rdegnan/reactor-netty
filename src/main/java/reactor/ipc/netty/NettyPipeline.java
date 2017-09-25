@@ -17,11 +17,11 @@
 package reactor.ipc.netty;
 
 import java.util.Objects;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
+import io.reactivex.functions.BiConsumer;
 import org.reactivestreams.Publisher;
 
 /**
@@ -98,10 +98,10 @@ public interface NettyPipeline {
 	 */
 	final class SendOptionsChangeEvent {
 
-		final Consumer<? super SendOptions> configurator;
+		final PlainConsumer<? super SendOptions> configurator;
 		final Publisher<?>                  source;
 
-		SendOptionsChangeEvent(Consumer<? super SendOptions> configurator,
+		SendOptionsChangeEvent(PlainConsumer<? super SendOptions> configurator,
 				Publisher<?> source) {
 			this.configurator = Objects.requireNonNull(configurator, "configurator");
 			this.source = source;
@@ -112,7 +112,7 @@ public interface NettyPipeline {
 		 *
 		 * @return the send configurator
 		 */
-		public Consumer<? super SendOptions> configurator() {
+		public PlainConsumer<? super SendOptions> configurator() {
 			return configurator;
 		}
 	}

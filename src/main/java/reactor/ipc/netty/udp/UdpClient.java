@@ -18,18 +18,18 @@ package reactor.ipc.netty.udp;
 
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
-import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.channel.ChannelOperations;
@@ -103,7 +103,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	 * @param options the configurator
 	 * @return a new {@link UdpClient}
 	 */
-	public static UdpClient create(Consumer<? super ClientOptions.Builder<?>> options) {
+	public static UdpClient create(PlainConsumer<? super ClientOptions.Builder<?>> options) {
 		return builder().options(options).build();
 	}
 
@@ -128,16 +128,16 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	}
 
 	@Override
-	public Mono<? extends NettyContext> newHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler) {
-		final BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>>
+	public Perhaps<? extends NettyContext> newHandler(PlainBiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler) {
+		final PlainBiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>>
 				targetHandler =
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
-		return Mono.create(sink -> {
-			Bootstrap b = options.get();
+		return Perhaps.create(sink -> {
+			Bootstrap b = options.call();
 			SocketAddress adr = options.getAddress();
 			if(adr == null){
-				sink.error(new NullPointerException("Provided ClientOptions do not " +
+				sink.onError(new NullPointerException("Provided ClientOptions do not " +
 						"define any address to bind to "));
 				return;
 			}
@@ -156,8 +156,8 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	 *
 	 * @return a new {@link ContextHandler}
 	 */
-	protected ContextHandler<DatagramChannel> doHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink,
+	protected ContextHandler<DatagramChannel> doHandler(PlainBiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler,
+			MaybeEmitter<NettyContext> sink,
 			SocketAddress providedAddress) {
 		return ContextHandler.newClientContext(sink,
 				options,
@@ -170,7 +170,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 
 	static final int DEFAULT_UDP_THREAD_COUNT = Integer.parseInt(System.getProperty(
 			"reactor.udp.ioThreadCount",
-			"" + Schedulers.DEFAULT_POOL_SIZE));
+			"" + Math.max(Runtime.getRuntime().availableProcessors(), 4)));
 
 	static final LoggingHandler loggingHandler = new LoggingHandler(UdpClient.class);
 
@@ -178,7 +178,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 			LoopResources.create("udp", DEFAULT_UDP_THREAD_COUNT, true);
 
 	public static final class Builder {
-		private Consumer<? super UdpClientOptions.Builder> options;
+		private PlainConsumer<? super UdpClientOptions.Builder> options;
 
 		private Builder() {
 		}
@@ -189,7 +189,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 		 * @param options the options for the client, including address and port.
 		 * @return {@code this}
 		 */
-		public final Builder options(Consumer<? super UdpClientOptions.Builder> options) {
+		public final Builder options(PlainConsumer<? super UdpClientOptions.Builder> options) {
 			this.options = Objects.requireNonNull(options, "options");
 			return this;
 		}

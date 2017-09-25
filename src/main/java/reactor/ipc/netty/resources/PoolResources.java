@@ -16,18 +16,19 @@
 
 package reactor.ipc.netty.resources;
 
-import java.net.SocketAddress;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
+import hu.akarnokd.rxjava2.basetypes.Nono;
+import hu.akarnokd.rxjava2.functions.PlainConsumer;
+import hu.akarnokd.rxjava2.functions.Supplier;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
-import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+
+import java.net.SocketAddress;
 
 /**
  * A {@link io.netty.channel.pool.ChannelPool} selector with associated factories.
@@ -164,12 +165,17 @@ public interface PoolResources extends Disposable {
 		disposeLater().subscribe();
 	}
 
+	@Override
+	default boolean isDisposed() {
+		return false;
+	}
+
 	/**
 	 * Returns a Mono that triggers the disposal of underlying resources when subscribed to.
 	 *
 	 * @return a Mono representing the completion of resources disposal.
 	 **/
-	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+	default Nono disposeLater() {
+		return Nono.complete(); //noop default
 	}
 }

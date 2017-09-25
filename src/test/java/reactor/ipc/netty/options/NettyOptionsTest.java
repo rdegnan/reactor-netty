@@ -25,7 +25,6 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
@@ -48,7 +47,7 @@ public class NettyOptionsTest {
 
 		HttpClient.create(nettyContext.address().getPort())
 		          .get("/", req -> req.failOnClientError(false).send())
-		          .block();
+		          .blockingGet();
 
 		assertThat(initializedChannels)
 				.hasSize(1)
@@ -70,7 +69,7 @@ public class NettyOptionsTest {
 
 		HttpClient.create(nettyContext.address().getPort())
 		          .get("/", req -> req.failOnClientError(false).send())
-		          .block();
+		          .blockingGet();
 
 		assertThat((Iterable<Channel>) group)
 				.hasSize(1)
@@ -94,7 +93,7 @@ public class NettyOptionsTest {
 
 		HttpClient.create(nettyContext.address().getPort())
 		          .get("/", req -> req.failOnClientError(false).send())
-		          .block();
+		          .blockingGet();
 
 		assertThat((Iterable<Channel>) group)
 				.hasSize(1)
@@ -120,7 +119,7 @@ public class NettyOptionsTest {
 
 		HttpClient.create(nettyContext.address().getPort())
 		          .get("/", req -> req.failOnClientError(false).send())
-		          .block();
+		          .blockingGet();
 
 		assertThat((Iterable<Channel>) group)
 				//the main NettyContext channel is not impacted by pipeline options
@@ -149,7 +148,7 @@ public class NettyOptionsTest {
 
 		HttpClientResponse response1 = HttpClient.create(nettyContext.address().getPort())
 		                                         .get("/", req -> req.failOnClientError(false).send())
-		                                         .block();
+		                                         .blockingGet();
 
 		assertThat(response1.status().code()).isEqualTo(404);
 
@@ -160,7 +159,7 @@ public class NettyOptionsTest {
 
 		HttpClientResponse response2 = HttpClient.create(nettyContext.address().getPort())
 		                                         .get("/", req -> req.failOnClientError(false).send())
-		                                         .block();
+		                                         .blockingGet();
 
 		assertThat(response2.status().code()).isEqualTo(404); //reactor handler was applied and produced a response
 		assertThat(readCount.get()).isEqualTo(1); //BUT channelHandler wasn't applied a second time since not Shareable

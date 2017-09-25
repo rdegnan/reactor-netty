@@ -21,14 +21,15 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
+import hu.akarnokd.rxjava2.functions.PlainBiFunction;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.MaybeEmitter;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -37,8 +38,6 @@ import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.ipc.netty.options.ServerOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * * A TCP server connector.
@@ -152,17 +151,14 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	@Override
-	public final Mono<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
+	public final Perhaps<? extends NettyContext> newHandler(PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(handler, "handler");
-		return Mono.create(sink -> {
-			ServerBootstrap b = options.get();
+		return Perhaps.create(sink -> {
+			ServerBootstrap b = options.call();
 			SocketAddress local = options.getAddress();
 			b.localAddress(local);
 			ContextHandler<Channel> contextHandler = doHandler(handler, sink);
 			b.childHandler(contextHandler);
-			if(log.isDebugEnabled()){
-				b.handler(loggingHandler());
-			}
 			contextHandler.setFuture(b.bind());
 		});
 	}
@@ -198,8 +194,8 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	 * @return a new {@link ContextHandler}
 	 */
 	protected ContextHandler<Channel> doHandler(
-			BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink) {
+			PlainBiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+			MaybeEmitter<NettyContext> sink) {
 		return ContextHandler.newServerContext(sink,
 				options,
 				loggingHandler(),
@@ -207,8 +203,6 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	static final LoggingHandler loggingHandler = new LoggingHandler(TcpServer.class);
-
-	static final Logger log = Loggers.getLogger(TcpServer.class);
 
 	public static final class Builder {
 		private String bindAddress = NetUtil.LOCALHOST.getHostAddress();

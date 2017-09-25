@@ -21,7 +21,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,15 +30,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import hu.akarnokd.rxjava2.basetypes.Perhaps;
 import io.netty.handler.codec.LineBasedFrameDecoder;
+import io.reactivex.Flowable;
+import io.reactivex.schedulers.Schedulers;
 import org.assertj.core.api.Assertions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.SocketUtils;
@@ -117,13 +116,12 @@ public class TcpClientTests {
 		NettyContext client = TcpClient.create("localhost", echoServerPort)
 		                               .newHandler((in, out) -> {
 			                               in.receive()
-			                                 .log("conn")
 			                                 .subscribe(s -> latch.countDown());
 
-			                               return out.sendString(Flux.just("Hello World!"))
+			                               return out.sendString(Flowable.just("Hello World!"))
 			                                  .neverComplete();
 		                               })
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingGet(30, TimeUnit.SECONDS);
 
 		latch.await(30, TimeUnit.SECONDS);
 
@@ -143,10 +141,10 @@ public class TcpClientTests {
 			in.receive()
 			  .subscribe(d -> latch.countDown());
 
-			return out.sendString(Flux.just("Hello"))
+			return out.sendString(Flowable.just("Hello"))
 			   .neverComplete();
 		})
-		                       .block(Duration.ofSeconds(5));
+		                       .blockingGet(5, TimeUnit.SECONDS);
 
 		latch.await(5, TimeUnit.SECONDS);
 
@@ -170,9 +168,9 @@ public class TcpClientTests {
 						                                                     new LineBasedFrameDecoder(
 								                                                     8 * 1024))))
 				         .newHandler((in, out) ->
-					        out.sendString(Flux.range(1, messages)
+					        out.sendString(Flowable.range(1, messages)
 					                            .map(i -> "Hello World!" + i + "\n")
-					                            .subscribeOn(Schedulers.parallel()))
+					                            .subscribeOn(Schedulers.computation()))
 					            .then( in.receive()
 					                     .asString()
 					                     .take(100)
@@ -180,11 +178,11 @@ public class TcpClientTests {
 					                     .doOnNext(s -> {
 						                     strings.add(s);
 						                     latch.countDown();
-					                     }).then())
+					                     }).ignoreElements().toFlowable())
 				         )
-				         .block(Duration.ofSeconds(15))
+				         .blockingGet(15, TimeUnit.SECONDS)
 				         .onClose()
-				         .block(Duration.ofSeconds(30));
+				         .blockingAwait(30, TimeUnit.SECONDS);
 
 		assertTrue("Expected messages not received. Received " + strings.size() + " messages: " + strings,
 				latch.await(15, TimeUnit.SECONDS));
@@ -199,10 +197,10 @@ public class TcpClientTests {
 				                             .port(abortServerPort)
 				                             .disablePool());
 
-		client.newHandler((in, out) -> Mono.empty())
-		      .block(Duration.ofSeconds(30))
+		client.newHandler((in, out) -> Flowable.empty())
+		      .blockingGet(30, TimeUnit.SECONDS)
 		      .onClose()
-		      .block(Duration.ofSeconds(30));
+		      .blockingAwait(30, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -212,25 +210,22 @@ public class TcpClientTests {
 		final AtomicLong totalDelay = new AtomicLong();
 
 		TcpClient.create("localhost", abortServerPort + 3)
-		         .newHandler((in, out) -> Mono.never())
-		         .retryWhen(errors -> errors.zipWith(Flux.range(1, 4), (a, b) -> b)
+		         .newHandler((in, out) -> Flowable.never())
+		         .retryWhen(errors -> errors.zipWith(Flowable.range(1, 4), (a, b) -> b)
 		                                    .flatMap(attempt -> {
 			                                    switch (attempt) {
 				                                    case 1:
 					                                    totalDelay.addAndGet(100);
-					                                    return Mono.delay(Duration
-							                                    .ofMillis(100));
+					                                    return Flowable.timer(100, TimeUnit.MILLISECONDS);
 				                                    case 2:
 					                                    totalDelay.addAndGet(500);
-					                                    return Mono.delay(Duration
-							                                    .ofMillis(500));
+					                                    return Flowable.timer(500, TimeUnit.MILLISECONDS);
 				                                    case 3:
 					                                    totalDelay.addAndGet(1000);
-					                                    return Mono.delay(Duration
-							                                    .ofSeconds(1));
+					                                    return Flowable.timer(1, TimeUnit.SECONDS);
 				                                    default:
 					                                    latch.countDown();
-					                                    return Mono.<Long>empty();
+					                                    return Flowable.<Long>empty();
 			                                    }
 		                                    }))
 		         .subscribe(System.out::println);
@@ -252,19 +247,19 @@ public class TcpClientTests {
 					                             .port(abortServerPort)
 					                             .disablePool());
 
-			Mono<? extends NettyContext> handler = tcpClient.newHandler((in, out) -> {
+			Perhaps<? extends NettyContext> handler = tcpClient.newHandler((in, out) -> {
 				System.out.println("Start");
 				connectionLatch.countDown();
 				in.receive()
 				  .subscribe();
-				return Flux.never();
+				return Flowable.never();
 			});
 
-			handler.log()
-			       .block(Duration.ofSeconds(30))
+			handler.blockingGet(30, TimeUnit.SECONDS)
 			       .onClose()
-			       .then(handler.doOnSuccess(s -> reconnectionLatch.countDown()))
-			       .block(Duration.ofSeconds(30));
+			       .andThen(handler.doOnNext(s -> reconnectionLatch.countDown()))
+					   .ignoreElements()
+					   .blockingAwait(30, TimeUnit.SECONDS);
 
 			assertTrue("Initial connection is made", connectionLatch.await(5, TimeUnit.SECONDS));
 			assertTrue("A reconnect attempt was made", reconnectionLatch.await(5, TimeUnit.SECONDS));
@@ -298,11 +293,11 @@ public class TcpClientTests {
 				latch.countDown();
 			});
 
-			return Mono.delay(Duration.ofSeconds(3))
-			           .then()
-			           .log();
+			return Flowable.timer(3, TimeUnit.SECONDS)
+			           .ignoreElements()
+					       .toFlowable();
 		})
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingGet(30, TimeUnit.SECONDS);
 
 		assertTrue("latch was counted down", latch.await(5, TimeUnit.SECONDS));
 		assertTrue("close was counted down", close.await(30, TimeUnit.SECONDS));
@@ -320,9 +315,9 @@ public class TcpClientTests {
 
 		NettyContext s = client.newHandler((in, out) -> {
 			in.onReadIdle(500, latch::countDown);
-			return Flux.never();
+			return Flowable.never();
 		})
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingGet(30, TimeUnit.SECONDS);
 
 		assertTrue(latch.await(15, TimeUnit.SECONDS));
 		heartbeatServer.close();
@@ -347,12 +342,12 @@ public class TcpClientTests {
 			                               List<Publisher<Void>> allWrites =
 					                               new ArrayList<>();
 			                               for (int i = 0; i < 5; i++) {
-				                               allWrites.add(out.sendString(Flux.just("a")
-				                                                                .delayElements(Duration.ofMillis(750))));
+				                               allWrites.add(out.sendString(Flowable.just("a")
+				                                                                .delay(750, TimeUnit.MILLISECONDS)));
 			                               }
-			                               return Flux.merge(allWrites);
+			                               return Flowable.merge(allWrites);
 		                               })
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingGet(30, TimeUnit.SECONDS);
 
 		System.out.println("Started");
 
@@ -370,11 +365,11 @@ public class TcpClientTests {
 
 		final CountDownLatch latch = new CountDownLatch(1);
 		System.out.println(client.get("http://www.google.com/?q=test%20d%20dq")
-		                         .flatMap(r -> r.receive()
+		                         .flatMap(r -> Perhaps.fromSingle(r.receive()
 		                                     .asString()
-		                                     .collectList())
-		                         .doOnSuccess(v -> latch.countDown())
-		                         .block(Duration.ofSeconds(30)));
+		                                     .toList()))
+		                         .doOnNext(v -> latch.countDown())
+		                         .blockingGet(30, TimeUnit.SECONDS));
 
 		assertTrue("Latch didn't time out", latch.await(15, TimeUnit.SECONDS));
 	}

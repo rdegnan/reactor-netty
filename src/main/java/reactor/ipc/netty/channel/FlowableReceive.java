@@ -16,38 +16,35 @@
 
 package reactor.ipc.netty.channel;
 
-import java.util.Queue;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufHolder;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoop;
 import io.netty.util.ReferenceCountUtil;
+import io.reactivex.Flowable;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.disposables.Disposables;
+import io.reactivex.internal.queue.SpscLinkedArrayQueue;
+import io.reactivex.internal.subscriptions.EmptySubscription;
+import io.reactivex.internal.subscriptions.SubscriptionHelper;
+import io.reactivex.internal.util.BackpressureHelper;
+import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import reactor.core.CoreSubscriber;
-import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Operators;
-import reactor.util.Logger;
-import reactor.util.Loggers;
-import reactor.util.concurrent.Queues;
-import reactor.util.context.Context;
 
 /**
  * @author Stephane Maldini
  */
-final class FluxReceive extends Flux<Object> implements Subscription, Disposable {
+final class FlowableReceive extends Flowable<Object> implements Subscription, Disposable {
 
 	final Channel           channel;
 	final ChannelOperations<?, ?> parent;
 	final EventLoop         eventLoop;
 
-	CoreSubscriber<? super Object> receiver;
+	Subscriber<? super Object>     receiver;
 	boolean                        receiverFastpath;
 	long                           receiverDemand;
-	Queue<Object>                  receiverQueue;
+	SpscLinkedArrayQueue<Object>   receiverQueue;
 
 	volatile boolean   inboundDone;
 	Throwable inboundError;
@@ -55,19 +52,27 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 	volatile Disposable receiverCancel;
 	volatile int wip;
 
-	final static AtomicIntegerFieldUpdater<FluxReceive> WIP = AtomicIntegerFieldUpdater.newUpdater
-			(FluxReceive.class, "wip");
+	final static AtomicIntegerFieldUpdater<FlowableReceive> WIP = AtomicIntegerFieldUpdater.newUpdater
+			(FlowableReceive.class, "wip");
 
-	FluxReceive(ChannelOperations<?, ?> parent) {
+	FlowableReceive(ChannelOperations<?, ?> parent) {
 		this.parent = parent;
 		this.channel = parent.channel;
 		this.eventLoop = channel.eventLoop();
-		CANCEL.lazySet(this, () -> {
-			if (eventLoop.inEventLoop()) {
-				unsubscribeReceiver();
+		CANCEL.lazySet(this, new Disposable() {
+			@Override
+			public void dispose() {
+				if (eventLoop.inEventLoop()) {
+					unsubscribeReceiver();
+				}
+				else {
+					eventLoop.execute(FlowableReceive.this::unsubscribeReceiver);
+				}
 			}
-			else {
-				eventLoop.execute(this::unsubscribeReceiver);
+
+			@Override
+			public boolean isDisposed() {
+				return false;
 			}
 		});
 	}
@@ -98,14 +103,14 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 
 	@Override
 	public void request(long n) {
-		if (Operators.validate(n)) {
+		if (SubscriptionHelper.validate(n)) {
 			if (eventLoop.inEventLoop()) {
-				this.receiverDemand = Operators.addCap(receiverDemand, n);
+				this.receiverDemand = BackpressureHelper.addCap(receiverDemand, n);
 				drainReceiver();
 			}
 			else {
 				eventLoop.execute(() -> {
-					this.receiverDemand = Operators.addCap(receiverDemand, n);
+					this.receiverDemand = BackpressureHelper.addCap(receiverDemand, n);
 					drainReceiver();
 				});
 			}
@@ -113,7 +118,7 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 	}
 
 	@Override
-	public void subscribe(CoreSubscriber<? super Object> s) {
+	protected void subscribeActual(Subscriber<? super Object> s) {
 		if (eventLoop.inEventLoop()){
 			startReceiver(s);
 		}
@@ -134,13 +139,10 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 		return false;
 	}
 
-	final void cleanQueue(Queue<Object> q){
+	final void cleanQueue(SpscLinkedArrayQueue<Object> q){
 		if (q != null) {
 			Object o;
 			while ((o = q.poll()) != null) {
-				if (log.isDebugEnabled()) {
-					log.debug("Dropping frame {}, {} in buffer", o, getPending());
-				}
 				ReferenceCountUtil.release(o);
 			}
 		}
@@ -152,8 +154,8 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 		}
 		int missed = 1;
 		for(;;) {
-			final Queue<Object> q = receiverQueue;
-			final CoreSubscriber<? super Object> a = receiver;
+			final SpscLinkedArrayQueue<Object> q = receiverQueue;
+			final Subscriber<? super Object> a = receiver;
 			boolean d = inboundDone;
 
 			if (a == null) {
@@ -246,21 +248,15 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 		return false;
 	}
 
-	final void startReceiver(CoreSubscriber<? super Object> s) {
+	final void startReceiver(Subscriber<? super Object> s) {
 		if (receiver == null) {
-			if (log.isDebugEnabled()) {
-				log.debug("{} Subscribing inbound receiver [pending: {}, cancelled:{}, " +
-								"inboundDone: {}]", channel.toString(), getPending(),
-						isCancelled(),
-						inboundDone);
-			}
 			if (inboundDone && getPending() == 0) {
 				if (inboundError != null) {
-					Operators.error(s, inboundError);
+					EmptySubscription.error(inboundError, s);
 					return;
 				}
 
-				Operators.complete(s);
+				EmptySubscription.complete(s);
 				return;
 			}
 
@@ -269,33 +265,20 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 			s.onSubscribe(this);
 		}
 		else {
-			Operators.error(s,
+			EmptySubscription.error(
 					new IllegalStateException(
-							"Only one connection receive subscriber allowed."));
+							"Only one connection receive subscriber allowed."), s);
 		}
 	}
 
 	final void onInboundNext(Object msg) {
 		if (inboundDone || isCancelled()) {
-			if (log.isDebugEnabled()) {
-				log.debug("Dropping frame {}, {} in buffer", msg, getPending());
-			}
 			ReferenceCountUtil.release(msg);
 			return;
 		}
 
 		if (receiverFastpath && receiver != null) {
 			try {
-				if (log.isDebugEnabled()){
-					if(msg instanceof ByteBuf) {
-						((ByteBuf) msg).touch("Unbounded receiver, bypass inbound " +
-								"buffer queue");
-					}
-					else if (msg instanceof ByteBufHolder){
-						((ByteBufHolder) msg).touch("Unbounded receiver, bypass inbound " +
-								"buffer queue");
-					}
-				}
 				receiver.onNext(msg);
 			}
 			finally {
@@ -303,20 +286,10 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 			}
 		}
 		else {
-			Queue<Object> q = receiverQueue;
+			SpscLinkedArrayQueue<Object> q = receiverQueue;
 			if (q == null) {
-				q = Queues.unbounded()
-				          .get();
+				q = new SpscLinkedArrayQueue<>(Flowable.bufferSize());
 				receiverQueue = q;
-			}
-			if (log.isDebugEnabled()){
-				if(msg instanceof ByteBuf) {
-					((ByteBuf) msg).touch("Buffered ByteBuf in Inbound Flux Queue");
-				}
-				else if (msg instanceof ByteBufHolder){
-					((ByteBufHolder) msg).touch("Buffered ByteBufHolder in Inbound Flux" +
-							" Queue");
-				}
 			}
 			q.offer(msg);
 			if (drainReceiver()) {
@@ -330,7 +303,7 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 			return false;
 		}
 		inboundDone = true;
-		CoreSubscriber<?> receiver = this.receiver;
+		Subscriber<?> receiver = this.receiver;
 		if (receiverFastpath && receiver != null) {
 			receiver.onComplete();
 			return true;
@@ -341,11 +314,9 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 
 	final boolean onInboundError(Throwable err) {
 		if (isCancelled() || inboundDone) {
-			Context c = receiver == null ? Context.empty() : receiver.currentContext();
-			Operators.onErrorDropped(err, c);
 			return false;
 		}
-		CoreSubscriber<?> receiver = this.receiver;
+		Subscriber<?> receiver = this.receiver;
 		this.inboundError = err;
 		this.inboundDone = true;
 
@@ -363,7 +334,7 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 		return false;
 	}
 
-	final void terminateReceiver(Queue<?> q, CoreSubscriber<?> a) {
+	final void terminateReceiver(SpscLinkedArrayQueue<?> q, Subscriber<?> a) {
 		if (q != null) {
 			q.clear();
 		}
@@ -386,13 +357,10 @@ final class FluxReceive extends Flux<Object> implements Subscription, Disposable
 	}
 
 	@SuppressWarnings("rawtypes")
-	static final AtomicReferenceFieldUpdater<FluxReceive, Disposable> CANCEL =
-			AtomicReferenceFieldUpdater.newUpdater(FluxReceive.class,
+	static final AtomicReferenceFieldUpdater<FlowableReceive, Disposable> CANCEL =
+			AtomicReferenceFieldUpdater.newUpdater(FlowableReceive.class,
 					Disposable.class,
 					"receiverCancel");
 
-	static final Disposable CANCELLED = () -> {
-	};
-
-	static final Logger log = Loggers.getLogger(FluxReceive.class);
+	static final Disposable CANCELLED = Disposables.disposed();
 }
