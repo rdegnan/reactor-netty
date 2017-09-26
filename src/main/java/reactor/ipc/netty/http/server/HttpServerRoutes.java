@@ -29,7 +29,7 @@ import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
 import org.reactivestreams.Publisher;
-import reactor.ipc.netty.ByteBufFlux;
+import reactor.ipc.netty.ByteBufFlowable;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
 
@@ -150,7 +150,7 @@ public interface HttpServerRoutes extends
 		Objects.requireNonNull(path, "path");
 		return route(uri, (req, resp) -> {
 			if (!Files.isReadable(path)) {
-				return resp.send(ByteBufFlux.fromPath(path));
+				return resp.send(ByteBufFlowable.fromPath(path));
 			}
 			if (interceptor != null) {
 				return interceptor.apply(resp)

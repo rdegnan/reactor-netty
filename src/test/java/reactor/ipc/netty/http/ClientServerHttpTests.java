@@ -284,8 +284,8 @@ public class ClientServerHttpTests {
 		return httpClient.get("/data")
 		                 .flatMapMany(s -> s.receive()
 		                                .asString()
-		                                .log("client")
-		                                .next())
+		                                .firstElement()
+										 								.toFlowable())
 		                 .collectList()
 		                 .cache()
 		                 .toProcessor();

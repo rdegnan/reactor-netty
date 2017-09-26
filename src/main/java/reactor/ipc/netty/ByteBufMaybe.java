@@ -24,33 +24,32 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
-import reactor.core.CoreSubscriber;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoOperator;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeObserver;
 
 /**
- * A decorating {@link Mono} {@link NettyInbound} with various {@link ByteBuf} related
+ * A decorating {@link Maybe} {@link NettyInbound} with various {@link ByteBuf} related
  * operations.
  *
  * @author Stephane Maldini
  */
-public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
+public final class ByteBufMaybe extends Maybe<ByteBuf> {
 
 	/**
-	 * a {@link ByteBuffer} inbound {@link Mono}
+	 * a {@link ByteBuffer} inbound {@link Maybe}
 	 *
-	 * @return a {@link ByteBuffer} inbound {@link Mono}
+	 * @return a {@link ByteBuffer} inbound {@link Maybe}
 	 */
-	public final Mono<ByteBuffer> asByteBuffer() {
+	public final Maybe<ByteBuffer> asByteBuffer() {
 		return map(ByteBuf::nioBuffer);
 	}
 
 	/**
-	 * a {@literal byte[]} inbound {@link Mono}
+	 * a {@literal byte[]} inbound {@link Maybe}
 	 *
-	 * @return a {@literal byte[]} inbound {@link Mono}
+	 * @return a {@literal byte[]} inbound {@link Maybe}
 	 */
-	public final Mono<byte[]> asByteArray() {
+	public final Maybe<byte[]> asByteArray() {
 		return map(bb -> {
 			byte[] bytes = new byte[bb.readableBytes()];
 			bb.readBytes(bytes);
@@ -59,31 +58,31 @@ public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
 	}
 
 	/**
-	 * a {@link String} inbound {@link Mono}
+	 * a {@link String} inbound {@link Maybe}
 	 *
-	 * @return a {@link String} inbound {@link Mono}
+	 * @return a {@link String} inbound {@link Maybe}
 	 */
-	public final Mono<String> asString() {
+	public final Maybe<String> asString() {
 		return asString(Charset.defaultCharset());
 	}
 
 	/**
-	 * a {@link String} inbound {@link Mono}
+	 * a {@link String} inbound {@link Maybe}
 	 *
 	 * @param charset the decoding charset
 	 *
-	 * @return a {@link String} inbound {@link Mono}
+	 * @return a {@link String} inbound {@link Maybe}
 	 */
-	public final Mono<String> asString(Charset charset) {
+	public final Maybe<String> asString(Charset charset) {
 		return map(s -> s.toString(charset));
 	}
 
 	/**
-	 * Convert to an {@link InputStream} inbound {@link Mono}
+	 * Convert to an {@link InputStream} inbound {@link Maybe}
 	 *
-	 * @return a {@link InputStream} inbound {@link Mono}
+	 * @return a {@link InputStream} inbound {@link Maybe}
 	 */
-	public Mono<InputStream> asInputStream() {
+	public Maybe<InputStream> asInputStream() {
 		return map(ReleasingInputStream::new);
 	}
 
@@ -91,19 +90,21 @@ public final class ByteBufMono extends MonoOperator<ByteBuf, ByteBuf> {
 	 * Disable auto memory release on each signal published in order to prevent premature
 	 * recycling when buffers are accumulated downstream (async).
 	 *
-	 * @return {@link ByteBufMono} of retained {@link ByteBuf}
+	 * @return {@link ByteBufMaybe} of retained {@link ByteBuf}
 	 */
-	public ByteBufMono retain() {
-		return new ByteBufMono(doOnNext(ByteBuf::retain));
+	public ByteBufMaybe retain() {
+		return new ByteBufMaybe(doOnSuccess(ByteBuf::retain));
 	}
 
 	@Override
-	public void subscribe(CoreSubscriber<? super ByteBuf> actual) {
+	protected void subscribeActual(MaybeObserver<? super ByteBuf> actual) {
 		source.subscribe(actual);
 	}
 
-	protected ByteBufMono(Mono<?> source) {
-		super(source.map(ByteBufFlux.bytebufExtractor));
+	final Maybe<ByteBuf> source;
+
+	protected ByteBufMaybe(Maybe<?> source) {
+		this.source = source.map(ByteBufFlowable.bytebufExtractor);
 	}
 
 	static final class ReleasingInputStream extends ByteBufInputStream {

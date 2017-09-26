@@ -23,143 +23,142 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.function.Function;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufHolder;
+import io.reactivex.Flowable;
+import io.reactivex.Maybe;
+import io.reactivex.functions.Function;
 import org.reactivestreams.Publisher;
-import reactor.core.CoreSubscriber;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxOperator;
-import reactor.core.publisher.Mono;
+import org.reactivestreams.Subscriber;
 
 /**
- * A decorating {@link Flux} {@link NettyInbound} with various {@link ByteBuf} related
+ * A decorating {@link Flowable} {@link NettyInbound} with various {@link ByteBuf} related
  * operations.
  *
  * @author Stephane Maldini
  */
-public final class ByteBufFlux extends FluxOperator<ByteBuf, ByteBuf> {
+public final class ByteBufFlowable extends Flowable<ByteBuf> {
 
 	/**
-	 * Decorate as {@link ByteBufFlux}
+	 * Decorate as {@link ByteBufFlowable}
 	 *
 	 * @param source publisher to decorate
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromInbound(Publisher<?> source) {
+	public static ByteBufFlowable fromInbound(Publisher<?> source) {
 		return fromInbound(source, ByteBufAllocator.DEFAULT);
 	}
 
 	/**
-	 * Decorate as {@link ByteBufFlux}
+	 * Decorate as {@link ByteBufFlowable}
 	 *
 	 * @param source publisher to decorate
 	 * @param allocator the channel {@link ByteBufAllocator}
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromInbound(Publisher<?> source,
-			ByteBufAllocator allocator) {
+	public static ByteBufFlowable fromInbound(Publisher<?> source,
+																						ByteBufAllocator allocator) {
 		Objects.requireNonNull(allocator, "allocator");
-		return new ByteBufFlux(Flux.from(source)
+		return new ByteBufFlowable(Flowable.unsafeCreate(source)
 		                           .map(bytebufExtractor), allocator);
 	}
 
 	/**
 	 * Open a {@link java.nio.channels.FileChannel} from a path and stream
 	 * {@link ByteBuf} chunks with a default maximum size of 500K into
-	 * the returned {@link ByteBufFlux}
+	 * the returned {@link ByteBufFlowable}
 	 *
 	 * @param path the path to the resource to stream
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromPath(Path path) {
+	public static ByteBufFlowable fromPath(Path path) {
 		return fromPath(path, MAX_CHUNK_SIZE);
 	}
 
 	/**
 	 * Open a {@link java.nio.channels.FileChannel} from a path and stream
-	 * {@link ByteBuf} chunks with a given maximum size into the returned {@link ByteBufFlux}
+	 * {@link ByteBuf} chunks with a given maximum size into the returned {@link ByteBufFlowable}
 	 *
 	 * @param path the path to the resource to stream
 	 * @param maxChunkSize the maximum per-item ByteBuf size
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromPath(Path path, int maxChunkSize) {
+	public static ByteBufFlowable fromPath(Path path, int maxChunkSize) {
 		return fromPath(path, maxChunkSize, ByteBufAllocator.DEFAULT);
 	}
 
 	/**
 	 * Open a {@link java.nio.channels.FileChannel} from a path and stream
 	 * {@link ByteBuf} chunks with a default maximum size of 500K into the returned
-	 * {@link ByteBufFlux}, using the provided {@link ByteBufAllocator}.
+	 * {@link ByteBufFlowable}, using the provided {@link ByteBufAllocator}.
 	 *
 	 * @param path the path to the resource to stream
 	 * @param allocator the channel {@link ByteBufAllocator}
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromPath(Path path, ByteBufAllocator allocator) {
+	public static ByteBufFlowable fromPath(Path path, ByteBufAllocator allocator) {
 		return fromPath(path, MAX_CHUNK_SIZE, allocator);
 	}
 
 	/**
 	 * Open a {@link java.nio.channels.FileChannel} from a path and stream
 	 * {@link ByteBuf} chunks with a given maximum size into the returned
-	 * {@link ByteBufFlux}, using the provided {@link ByteBufAllocator}.
+	 * {@link ByteBufFlowable}, using the provided {@link ByteBufAllocator}.
 	 *
 	 * @param path the path to the resource to stream
 	 * @param maxChunkSize the maximum per-item ByteBuf size
 	 * @param allocator the channel {@link ByteBufAllocator}
 	 *
-	 * @return a {@link ByteBufFlux}
+	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlux fromPath(Path path,
-			int maxChunkSize,
-			ByteBufAllocator allocator) {
+	public static ByteBufFlowable fromPath(Path path,
+																				 int maxChunkSize,
+																				 ByteBufAllocator allocator) {
 		Objects.requireNonNull(path, "path");
 		Objects.requireNonNull(allocator, "allocator");
 		if (maxChunkSize < 1) {
 			throw new IllegalArgumentException("chunk size must be strictly positive, " + "was: " + maxChunkSize);
 		}
-		return new ByteBufFlux(Flux.generate(() -> FileChannel.open(path), (fc, sink) -> {
+		return new ByteBufFlowable(Flowable.generate(() -> FileChannel.open(path), (fc, sink) -> {
 			try {
 				ByteBuf buf = allocator.buffer();
 				long pos;
 				if ((pos = buf.writeBytes(fc, maxChunkSize)) < 0) {
-					sink.complete();
+					sink.onComplete();
 				}
 				else {
-					sink.next(buf);
+					sink.onNext(buf);
 				}
 			}
 			catch (IOException e) {
-				sink.error(e);
+				sink.onError(e);
 			}
 			return fc;
 		}), allocator);
 	}
 
 	/**
-	 * Convert to a {@link ByteBuffer} inbound {@link Flux}
+	 * Convert to a {@link ByteBuffer} inbound {@link Flowable}
 	 *
-	 * @return a {@link ByteBuffer} inbound {@link Flux}
+	 * @return a {@link ByteBuffer} inbound {@link Flowable}
 	 */
-	public final Flux<ByteBuffer> asByteBuffer() {
+	public final Flowable<ByteBuffer> asByteBuffer() {
 		return map(ByteBuf::nioBuffer);
 	}
 
 	/**
-	 * Convert to a {@literal byte[]} inbound {@link Flux}
+	 * Convert to a {@literal byte[]} inbound {@link Flowable}
 	 *
-	 * @return a {@literal byte[]} inbound {@link Flux}
+	 * @return a {@literal byte[]} inbound {@link Flowable}
 	 */
-	public final Flux<byte[]> asByteArray() {
+	public final Flowable<byte[]> asByteArray() {
 		return map(bb -> {
 			byte[] bytes = new byte[bb.readableBytes()];
 			bb.readBytes(bytes);
@@ -168,54 +167,54 @@ public final class ByteBufFlux extends FluxOperator<ByteBuf, ByteBuf> {
 	}
 
 	/**
-	 * Convert to a {@link InputStream} inbound {@link Flux}
+	 * Convert to a {@link InputStream} inbound {@link Flowable}
 	 *
-	 * @return a {@link InputStream} inbound {@link Flux}
+	 * @return a {@link InputStream} inbound {@link Flowable}
 	 */
-	public Flux<InputStream> asInputStream() {
-		return map(ByteBufMono.ReleasingInputStream::new);
+	public Flowable<InputStream> asInputStream() {
+		return map(ByteBufMaybe.ReleasingInputStream::new);
 	}
 
 	/**
-	 * Convert to a {@link String} inbound {@link Flux} using the default {@link Charset}.
+	 * Convert to a {@link String} inbound {@link Flowable} using the default {@link Charset}.
 	 *
-	 * @return a {@link String} inbound {@link Flux}
+	 * @return a {@link String} inbound {@link Flowable}
 	 */
-	public final Flux<String> asString() {
+	public final Flowable<String> asString() {
 		return asString(Charset.defaultCharset());
 	}
 
 	/**
-	 * Convert to a {@link String} inbound {@link Flux} using the provided {@link Charset}.
+	 * Convert to a {@link String} inbound {@link Flowable} using the provided {@link Charset}.
 	 *
 	 * @param charset the decoding charset
 	 *
-	 * @return a {@link String} inbound {@link Flux}
+	 * @return a {@link String} inbound {@link Flowable}
 	 */
-	public final Flux<String> asString(Charset charset) {
+	public final Flowable<String> asString(Charset charset) {
 		return map(s -> s.toString(charset));
 	}
 
 	/**
 	 * Aggregate subsequent byte buffers into a single buffer.
 	 *
-	 * @return {@link ByteBufMono} of aggregated {@link ByteBuf}
+	 * @return {@link ByteBufMaybe} of aggregated {@link ByteBuf}
 	 */
-	public ByteBufMono aggregate() {
-		return Mono.using(alloc::compositeBuffer,
+	public ByteBufMaybe aggregate() {
+		return Maybe.using(alloc::compositeBuffer,
 				b -> this.reduce(b, (prev, next) -> prev.addComponent(next.retain()))
-				         .doOnNext(cbb -> cbb.writerIndex(cbb.capacity()))
+				         .doOnSuccess(cbb -> cbb.writerIndex(cbb.capacity()))
 				         .filter(ByteBuf::isReadable),
-				ByteBuf::release).as(ByteBufMono::new);
+				ByteBuf::release, false).to(ByteBufMaybe::new);
 	}
 
 	/**
 	 * Allow multiple consumers downstream of the flux while also disabling auto memory
 	 * release on each buffer published (retaining in order to prevent premature recycling).
 	 *
-	 * @return {@link ByteBufMono} of retained {@link ByteBuf}
+	 * @return {@link ByteBufMaybe} of retained {@link ByteBuf}
 	 */
-	public ByteBufMono multicast() {
+	public ByteBufMaybe multicast() {
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
@@ -223,21 +222,22 @@ public final class ByteBufFlux extends FluxOperator<ByteBuf, ByteBuf> {
 	 * Disable auto memory release on each buffer published, retaining in order to prevent
 	 * premature recycling when buffers are accumulated downstream (async).
 	 *
-	 * @return {@link ByteBufFlux} of retained {@link ByteBuf}
+	 * @return {@link ByteBufFlowable} of retained {@link ByteBuf}
 	 */
-	public ByteBufFlux retain() {
-		return new ByteBufFlux(doOnNext(ByteBuf::retain), alloc);
+	public ByteBufFlowable retain() {
+		return new ByteBufFlowable(doOnNext(ByteBuf::retain), alloc);
 	}
 
+	final Flowable<ByteBuf> source;
 	final ByteBufAllocator alloc;
 
-	ByteBufFlux(Flux<ByteBuf> source, ByteBufAllocator allocator) {
-		super(source);
+	ByteBufFlowable(Flowable<ByteBuf> source, ByteBufAllocator allocator) {
+		this.source = source;
 		this.alloc = allocator;
 	}
 
 	@Override
-	public void subscribe(CoreSubscriber<? super ByteBuf> s) {
+	protected void subscribeActual(Subscriber<? super ByteBuf> s) {
 		source.subscribe(s);
 	}
 

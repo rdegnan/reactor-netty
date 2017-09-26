@@ -299,9 +299,10 @@ public class SmokeTests {
 						              .port(httpServer.address().getPort()));
 
 		Mono<List<String>> content = httpClient.get("/data")
-		                                       .flatMap(f -> f.receive()
+		                                       .flatMap(f -> Mono.from(f.receive()
 		                                                   .asString()
-		                                                   .collectList())
+		                                                   .toList()
+																					 						 .toFlowable()))
 		                                       .cache();
 
 		List<String> res = content.block(Duration.ofSeconds(30));

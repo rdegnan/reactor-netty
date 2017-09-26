@@ -51,11 +51,12 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
+import io.reactivex.Flowable;
 import org.junit.Test;
 import org.testng.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.ByteBufFlux;
+import reactor.ipc.netty.ByteBufFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.http.HttpResources;
@@ -140,7 +141,7 @@ public class HttpServerTests {
 		context.dispose();
 		context.onClose().block();
 
-		String body = response.receive().aggregate().asString(StandardCharsets.UTF_8).block();
+		String body = response.receive().aggregate().asString(StandardCharsets.UTF_8).blockingGet();
 
 		assertThat(body)
 				.startsWith("This is an UTF-8 file that is larger than 1024 bytes. " + "It contains accents like é.")
@@ -197,7 +198,7 @@ public class HttpServerTests {
 		context.dispose();
 		context.onClose().block();
 
-		String body = response.receive().aggregate().asString(StandardCharsets.UTF_8).block();
+		String body = response.receive().aggregate().asString(StandardCharsets.UTF_8).blockingGet();
 
 		assertThat(body)
 				.startsWith("This is an UTF-8 file that is larger than 1024 bytes. " + "It contains accents like é.")
@@ -282,9 +283,8 @@ public class HttpServerTests {
 
 			         in.receiveObject()
 			           .ofType(DefaultHttpContent.class)
-			           .as(ByteBufFlux::fromInbound)
+			           .as(ByteBufFlowable::fromInbound)
 			           .asString()
-			           .log()
 			           .map(Integer::parseInt)
 			           .subscribe(d -> {
 				           for (int x = 0; x < d; x++) {
@@ -313,7 +313,7 @@ public class HttpServerTests {
 		                           .newHandler((req, resp) -> resp.sendString(test.map(s -> s + "\n")))
 		                           .block(Duration.ofSeconds(30));
 
-		Flux<String> client = HttpClient.create(c.address()
+		Flowable<String> client = HttpClient.create(c.address()
 		                                         .getPort())
 		                                .get("/")
 		                                .block(Duration.ofSeconds(30))

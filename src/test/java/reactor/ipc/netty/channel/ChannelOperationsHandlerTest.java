@@ -51,7 +51,8 @@ public class ChannelOperationsHandlerTest {
 				                  req.receive()
 				                     .asString()
 				                     .doOnNext(System.err::println)
-				                     .then(res.status(200).sendHeaders().then()))
+														 .ignoreElements()
+				                     .andThen(res.status(200).sendHeaders().then()))
 				          .block(Duration.ofSeconds(30));
 
 		Flux<String> flux = Flux.range(1, 257).map(count -> count + "");

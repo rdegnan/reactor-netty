@@ -349,7 +349,8 @@ public class WebsocketTest {
 					                       return i.receive()
 					                               .asString()
 					                               .doOnNext(System.err::println)
-					                               .then();
+					                               .ignoreElements()
+																		     .toFlowable();
 				                       })
 		                       )
 		                       .block(Duration.ofSeconds(30));

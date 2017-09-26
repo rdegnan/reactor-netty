@@ -78,7 +78,7 @@ public class HttpCompressionClientServerTests {
 
 		String reply = resp.receive()
 		                   .asString()
-		                   .blockFirst();
+		                   .blockingFirst();
 		Assert.assertEquals("reply", reply);
 
 		nettyContext.dispose();
@@ -106,7 +106,7 @@ public class HttpCompressionClientServerTests {
 
 		String reply = resp.receive()
 		                   .asString()
-		                   .blockFirst();
+		                   .blockingFirst();
 		Assert.assertEquals("reply", reply);
 		nettyContext.dispose();
 		nettyContext.onClose()
@@ -134,7 +134,7 @@ public class HttpCompressionClientServerTests {
 		byte[] replyBuffer = resp.receive()
 		                         .aggregate()
 		                         .asByteArray()
-		                         .block();
+		                         .blockingGet();
 
 		assertThat(new String(replyBuffer)).isNotEqualTo("reply");
 
@@ -178,7 +178,7 @@ public class HttpCompressionClientServerTests {
 		//check the server sent plain text
 		String reply = resp.receive()
 		                   .asString()
-		                   .blockFirst();
+		                   .blockingFirst();
 		Assert.assertEquals("reply", reply);
 		nettyContext.dispose();
 		nettyContext.onClose()
@@ -206,7 +206,7 @@ public class HttpCompressionClientServerTests {
 		byte[] replyBuffer = resp.receive()
 		                         .aggregate()
 		                         .asByteArray()
-		                         .block();
+		                         .blockingGet();
 
 		assertThat(new String(replyBuffer)).isNotEqualTo("reply");
 
@@ -243,7 +243,7 @@ public class HttpCompressionClientServerTests {
 
 		String reply = resp.receive()
 		                   .asString()
-		                   .blockFirst();
+		                   .blockingFirst();
 
 		assertThat(resp.responseHeaders().get("Content-Encoding")).isNull();
 		assertThat(reply).isEqualTo(serverReply);
@@ -269,7 +269,7 @@ public class HttpCompressionClientServerTests {
 
 		String reply = resp.receive()
 		                   .asString()
-		                   .blockFirst();
+		                   .blockingFirst();
 
 		assertThat(resp.responseHeaders().get("Content-Encoding")).isNull();
 		assertThat(reply).isEqualTo("reply");

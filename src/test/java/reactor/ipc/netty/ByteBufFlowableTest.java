@@ -28,11 +28,11 @@ import java.nio.file.Path;
 import java.util.Iterator;
 
 /**
- * Unit tests for {@link ByteBufFlux}
+ * Unit tests for {@link ByteBufFlowable}
  *
  * @author Silvano Riz
  */
-public class ByteBufFluxTest {
+public class ByteBufFlowableTest {
 
     private static File temporaryDirectory;
 
@@ -49,7 +49,7 @@ public class ByteBufFluxTest {
     @Test
     public void testFromPath() throws Exception {
 
-        // Create a temporary file with some binary data that will be read in chunks using the ByteBufFlux
+        // Create a temporary file with some binary data that will be read in chunks using the ByteBufFlowable
         final int chunkSize = 3;
         final Path tmpFile = new File(temporaryDirectory, "content.in").toPath();
         final byte[] data = new byte[]{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
@@ -57,8 +57,8 @@ public class ByteBufFluxTest {
         // Make sure the file is 10 bytes (i.e. the same ad the data length)
         Assert.assertEquals(data.length, Files.size(tmpFile));
 
-        // Use the ByteBufFlux to read the file in chunks of 3 bytes max and write them into a ByteArrayOutputStream for verification
-        final Iterator<ByteBuf> it = ByteBufFlux.fromPath(tmpFile, chunkSize).toIterable().iterator();
+        // Use the ByteBufFlowable to read the file in chunks of 3 bytes max and write them into a ByteArrayOutputStream for verification
+        final Iterator<ByteBuf> it = ByteBufFlowable.fromPath(tmpFile, chunkSize).blockingIterable().iterator();
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         while (it.hasNext()) {
             ByteBuf bb = it.next();
@@ -76,7 +76,7 @@ public class ByteBufFluxTest {
 
     private static File createTemporaryDirectory() {
         try {
-            final File tempDir = File.createTempFile("ByteBufFluxTest", "", null);
+            final File tempDir = File.createTempFile("ByteBufFlowableTest", "", null);
             tempDir.delete();
             tempDir.mkdir();
             return tempDir;

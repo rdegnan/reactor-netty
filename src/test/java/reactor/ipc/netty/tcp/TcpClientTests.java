@@ -118,7 +118,6 @@ public class TcpClientTests {
 		NettyContext client = TcpClient.create("localhost", echoServerPort)
 		                               .newHandler((in, out) -> {
 			                               in.receive()
-			                                 .log("conn")
 			                                 .subscribe(s -> latch.countDown());
 
 			                               return out.sendString(Flux.just("Hello World!"))
@@ -181,7 +180,7 @@ public class TcpClientTests {
 					                     .doOnNext(s -> {
 						                     strings.add(s);
 						                     latch.countDown();
-					                     }).then())
+					                     }).ignoreElements().toFlowable())
 				         )
 				         .block(Duration.ofSeconds(15))
 				         .onClose()
@@ -373,9 +372,10 @@ public class TcpClientTests {
 
 		final CountDownLatch latch = new CountDownLatch(1);
 		System.out.println(client.get("http://www.google.com/?q=test%20d%20dq")
-		                         .flatMap(r -> r.receive()
+		                         .flatMap(r -> Mono.from(r.receive()
 		                                     .asString()
-		                                     .collectList())
+		                                     .toList()
+														 						 .toFlowable()))
 		                         .doOnSuccess(v -> latch.countDown())
 		                         .block(Duration.ofSeconds(30)));
 

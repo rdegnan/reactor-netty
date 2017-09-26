@@ -34,7 +34,7 @@ class HttpCookieHandlingSpec extends Specification {
 	def server = HttpServer.create(0).newRouter {
 	  it.get("/test") { req, resp ->
 		resp.addCookie(new DefaultCookie("cookie1", "test_value"))
-				.send(req.receive().log("server received"))
+				.send(req.receive())
 	  }
 	}.block(Duration.ofSeconds(30))
 

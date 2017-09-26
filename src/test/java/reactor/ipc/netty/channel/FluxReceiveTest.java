@@ -54,7 +54,7 @@ public class FluxReceiveTest {
 				                                     .get("/target")
 				                                     .log()
 				                                     .delayElement(Duration.ofMillis(50))
-				                                     .flatMap(response -> response.receive().aggregate().asString())
+				                                     .flatMap(response -> Mono.from(response.receive().aggregate().asString().toFlowable()))
 				                                     .timeout(Duration.ofMillis(50))
 				                                     .then()))
 				          .block(Duration.ofSeconds(30));

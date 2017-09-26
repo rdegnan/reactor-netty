@@ -54,8 +54,8 @@ public class HttpErrorTests {
 
 		List<String> result = r.receive()
 		                    .asString(StandardCharsets.UTF_8)
-		                    .collectList()
-		                    .block(Duration.ofSeconds(30));
+		                    .toList()
+		                    .blockingGet();
 
 		System.out.println("END");
 

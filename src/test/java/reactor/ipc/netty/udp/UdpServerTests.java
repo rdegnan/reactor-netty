@@ -84,7 +84,6 @@ public class UdpServerTests {
 		                                     .newHandler((in, out) -> {
 			                                   in.receive()
 			                                     .asByteArray()
-			                                     .log()
 			                                     .subscribe(bytes -> {
 				                                     if (bytes.length == 1024) {
 					                                     latch.countDown();

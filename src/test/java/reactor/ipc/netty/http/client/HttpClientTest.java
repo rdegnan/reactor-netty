@@ -23,6 +23,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.cert.CertificateException;
 import java.time.Duration;
+import java.util.AbstractMap;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -39,6 +41,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.CharsetUtil;
+import io.reactivex.Maybe;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -67,7 +70,8 @@ public class HttpClientTest {
 		NettyContext x = TcpServer.create("localhost", 0)
 		                          .newHandler((in, out) -> in.receive()
 		                                                     .take(1)
-		                                                     .thenMany(Flux.defer(() ->
+		                                                     .ignoreElements()
+		                                                     .andThen(Flux.defer(() ->
 						                                                     out.context(c ->
 								                                                     c.addHandlerFirst(new HttpResponseEncoder()))
 						                                                        .sendObject(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.ACCEPTED))
@@ -162,14 +166,14 @@ public class HttpClientTest {
 		Mono<String> page = remote
 				.flatMapMany(r -> r.receive()
 				               .asString()
-				               .limitRate(1))
+				               .rebatchRequests(1))
 				.reduce(String::concat);
 
 		Mono<String> cancelledPage = remote
 				.flatMapMany(r -> r.receive()
 				               .asString()
 				               .take(5)
-				               .limitRate(1))
+				               .rebatchRequests(1))
 				.reduce(String::concat);
 
 		page.block(Duration.ofSeconds(30));
@@ -231,7 +235,7 @@ public class HttpClientTest {
 				.flatMapMany(r -> r.receive()
 				               .retain()
 				               .asString()
-				               .limitRate(1))
+				               .rebatchRequests(1))
 				.reduce(String::concat);
 
 		page.block(Duration.ofSeconds(30));
@@ -255,14 +259,14 @@ public class HttpClientTest {
 				.flatMapMany(r -> r.receive()
 				               .retain()
 				               .asString()
-				               .limitRate(1))
+				               .rebatchRequests(1))
 				.reduce(String::concat);
 
 		Mono<String> page2 = remote2
 				.flatMapMany(r -> r.receive()
 				               .retain()
 				               .asString()
-				               .limitRate(1))
+				               .rebatchRequests(1))
 				.reduce(String::concat);
 
 		StepVerifier.create(page1)
@@ -473,11 +477,12 @@ public class HttpClientTest {
 						          .addHeader("Accept-Encoding", "gzip")
 						          .addHeader("Accept-Encoding", "deflate")
 				          )
-				          .flatMap(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Mono.just(r.responseHeaders().get("Content-Encoding", ""))))
+				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+																	SimpleImmutableEntry::new).toFlowable()))
 		)
-		            .expectNextMatches(tuple -> !tuple.getT1().contains("<html>") && !tuple.getT1().contains("<head>")
-				            && "gzip".equals(tuple.getT2()))
+		            .expectNextMatches(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
+				            && "gzip".equals(tuple.getValue()))
 		            .expectComplete()
 		            .verify();
 
@@ -489,11 +494,12 @@ public class HttpClientTest {
 					          return req.addHeader("Accept-Encoding", "gzip")
 					                    .addHeader("Accept-Encoding", "deflate");
 				          })
-				          .flatMap(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Mono.just(r.responseHeaders().get("Content-Encoding", ""))))
+				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+																	SimpleImmutableEntry::new).toFlowable()))
 		)
-		            .expectNextMatches(tuple -> tuple.getT1().contains("<html>") && tuple.getT1().contains("<head>")
-				            && "".equals(tuple.getT2()))
+		            .expectNextMatches(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
+				            && "".equals(tuple.getValue()))
 		            .expectComplete()
 		            .verify();
 	}
@@ -517,7 +523,7 @@ public class HttpClientTest {
 		StepVerifier.create(
 		        HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
 		                  .get("/")
-		                  .flatMap(r -> r.receive().asString().elementAt(0))
+		                  .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).toFlowable()))
 		        )
 		            .expectNextMatches(str -> expectedResponse.equals(str))
 		            .expectComplete()
@@ -587,7 +593,7 @@ public class HttpClientTest {
 		context.dispose();
 		context.onClose().block();
 
-		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).block();
+		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
 	}
 
@@ -612,7 +618,7 @@ public class HttpClientTest {
 		context.dispose();
 		context.onClose().block();
 
-		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).block();
+		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
 	}
 
@@ -631,8 +637,9 @@ public class HttpClientTest {
 						          req.receive()
 						             .aggregate()
 						             .asString(StandardCharsets.UTF_8)
-						             .doOnNext(uploaded::set)
-						             .then(resp.status(201).sendString(Mono.just("Received File")).then())))
+						             .doOnSuccess(uploaded::set)
+												 .ignoreElement()
+						             .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
 				          .block();
 
 		HttpClientResponse response =
@@ -644,7 +651,7 @@ public class HttpClientTest {
 		context.dispose();
 		context.onClose().block();
 
-		String responseBody = response.receive().aggregate().asString().block();
+		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);
 		assertThat(responseBody).isEqualTo("Received File");
 
@@ -666,8 +673,9 @@ public class HttpClientTest {
 								          .receive()
 								          .aggregate()
 								          .asString(StandardCharsets.UTF_8)
-								          .doOnNext(uploaded::set)
-								          .then(resp.status(201).sendString(Mono.just("Received File")).then())))
+								          .doOnSuccess(uploaded::set)
+													.ignoreElement()
+								          .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
 				          .block();
 
 		HttpClientResponse response =
@@ -678,7 +686,7 @@ public class HttpClientTest {
 		context.dispose();
 		context.onClose().block();
 
-		String responseBody = response.receive().aggregate().asString().block();
+		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);
 		assertThat(responseBody).isEqualTo("Received File");
 

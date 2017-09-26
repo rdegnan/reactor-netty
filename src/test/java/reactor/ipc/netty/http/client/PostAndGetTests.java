@@ -94,7 +94,6 @@ public class PostAndGetTests {
 
 			return resp.sendString(req.receive()
 			                          .take(1)
-			                          .log("received")
 			                          .flatMap(data -> {
 				                          final StringBuilder response =
 						                          new StringBuilder().append("hello ")

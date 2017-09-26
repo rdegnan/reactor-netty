@@ -15,9 +15,9 @@
  */
 package reactor.ipc.netty.http
 
+import io.reactivex.schedulers.Schedulers
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Schedulers
 import reactor.ipc.netty.http.client.HttpClient
 import reactor.ipc.netty.http.client.HttpClientException
 import reactor.ipc.netty.http.server.HttpServer
@@ -54,13 +54,13 @@ class HttpSpec extends Specification {
 	  req.header('Content-Type', 'text/plain')
 
 	  //return a producing stream to send some data along the request
-	  req.sendString(Mono.just("Hello").log('client-send'))
+	  req.sendString(Mono.just("Hello"))
 
 	}.flatMap({
 	  replies
 		->
 		//successful request, listen for the first returned next reply and pass it downstream
-		replies.receive().log('client-received').next()
+		Mono.from(replies.receive())
 	} as Function)
 			.doOnError {
 	  //something failed during the request or the reply processing
@@ -89,9 +89,7 @@ class HttpSpec extends Specification {
 
 		  res.sendString(req.receive()
 				  .asString()
-				  .log('server-received')
-				  .map { it + ' ' + req.param('param') + '!' }
-				  .log('server-reply'))
+				  .map { it + ' ' + req.param('param') + '!' })
 
 	  }
 	}.block(Duration.ofSeconds(30))
@@ -105,15 +103,14 @@ class HttpSpec extends Specification {
 	  req.header('Content-Type', 'text/plain')
 
 	  //return a producing stream to send some data along the request
-	  req.sendString(Flux.just("Hello")
-			  .log('client-send'))
+	  req.sendString(Flux.just("Hello"))
 
 	}.flatMap( { replies ->
 		//successful request, listen for the first returned next reply and pass it downstream
-		replies.receive()
+		Mono.from(replies.receive()
 				.aggregate()
 				.asString()
-				.log('client-received')
+				.toFlowable())
 	} as Function)
 			.doOnError {
 	  //something failed during the request or the reply processing
@@ -144,7 +141,6 @@ class HttpSpec extends Specification {
 			  .get('/test2') { req, res ->
 				 res.send(Flux.error(new Exception()))
 				    .then()
-				    .log("send")
 					.doOnError {
 		  				errored.countDown()
 			 		}
@@ -168,7 +164,6 @@ class HttpSpec extends Specification {
 			.get('/test')
 			.flatMap({ replies ->
 	  Mono.just(replies.status().code())
-			  .log("received-status-1")
 	} as Function)
 			.block(Duration.ofSeconds(30))
 
@@ -182,7 +177,7 @@ class HttpSpec extends Specification {
 	//prepare an http post request-reply flow
 	def content = client
 			.get('/test2')
-			.flatMapMany { replies -> replies.receive().log("received-status-2") }
+			.flatMapMany { replies -> replies.receive() }
 			.next()
 			.block(Duration.ofSeconds(30))
 
@@ -197,7 +192,6 @@ class HttpSpec extends Specification {
 			.get('/test3')
 			.flatMapMany { replies ->
 	  Flux.just(replies.status().code())
-			  .log("received-status-3")
 	}
 	.next()
 			.block(Duration.ofSeconds(5))
@@ -234,10 +228,9 @@ class HttpSpec extends Specification {
 			         o.options{ x -> x.flushOnEach() }
 					  .sendString(i.receive()
 						.asString()
-						.publishOn(Schedulers.single())
+						.observeOn(Schedulers.single())
 						.doOnNext { serverRes.incrementAndGet() }
-						.map { it + ' ' + req.param('param') + '!' }
-						.log('server-reply'))
+						.map { it + ' ' + req.param('param') + '!' })
 				  }
 	  }
 	}.block(Duration.ofSeconds(5))
@@ -255,7 +248,6 @@ class HttpSpec extends Specification {
 			  .sendWebsocket()
 			  .sendString(Flux
 				.range(1, 1000)
-				.log('client-send')
 				.map { it.toString() })
 	}.flatMapMany {
 	  replies
@@ -264,8 +256,7 @@ class HttpSpec extends Specification {
 		replies
 				.receive()
 				.asString()
-				.log('client-received')
-				.publishOn(Schedulers.parallel())
+				.observeOn(Schedulers.computation())
 				.doOnNext { clientRes.incrementAndGet() }
 	}
 	.take(1000)

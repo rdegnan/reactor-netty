@@ -127,7 +127,6 @@ public class TcpServerTests {
 					  throw Exceptions.propagate(io);
 				  }
 			  })
-			  .log("conn")
 			  .subscribe(data -> {
 				  if ("John Doe".equals(data.getName())) {
 					  latch.countDown();
@@ -147,7 +146,6 @@ public class TcpServerTests {
 			//in
 			in.receive()
 			  .asString()
-			  .log("receive")
 			  .subscribe(data -> {
 				  if (data.equals("Hi")) {
 					  latch.countDown();
@@ -310,7 +308,6 @@ public class TcpServerTests {
 		NettyContext server = TcpServer.create(0)
 		                               .newHandler((in, out) -> {
 			                             in.receive()
-			                               .log("channel")
 			                               .subscribe(trip -> {
 				                               countDownLatch.countDown();
 			                               });
@@ -408,7 +405,6 @@ public class TcpServerTests {
 				         .newHandler((in, out) -> {
 					         in.receive()
 					           .asString()
-					           .log("-----------------CLIENT1")
 					           .subscribe(m1::onNext);
 
 					         return out.sendString(Mono.just("gogogo"))
@@ -424,7 +420,6 @@ public class TcpServerTests {
 					           .asString(StandardCharsets.UTF_8)
 					           .take(2)
 					           .reduceWith(String::new, String::concat)
-					           .log("-----------------CLIENT2")
 					           .subscribe(m2::onNext);
 
 					         return out.sendString(Mono.just("GOGOGO"))
@@ -514,7 +509,6 @@ public class TcpServerTests {
 				         .newHandler((in, out) -> {
 					         in.receive()
 					           .asString()
-					           .log("-----------------CLIENT1")
 					           .subscribe(m1::onNext);
 
 					         return out.sendString(Mono.just("gogogo"))
@@ -529,7 +523,6 @@ public class TcpServerTests {
 					           .asString(StandardCharsets.UTF_8)
 					           .take(2)
 					           .reduceWith(String::new, String::concat)
-					           .log("-----------------CLIENT2")
 					           .subscribe(m2::onNext);
 
 					         return out.sendString(Mono.just("GOGOGO"))

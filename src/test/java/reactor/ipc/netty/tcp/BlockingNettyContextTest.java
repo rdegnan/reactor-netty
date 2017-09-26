@@ -78,7 +78,9 @@ public class BlockingNettyContextTest {
 						         .sendString(
 								         in.receive()
 								           .asString()
-								           .takeUntil(s -> s.endsWith("CONTROL"))
+								           .takeUntil(s -> {
+								           	return s.endsWith("CONTROL");
+													 })
 								           .map(s -> "ECHO: " + s.replaceAll("CONTROL", ""))
 								           .concatWith(Mono.just("DONE"))
 						         )
@@ -97,13 +99,17 @@ public class BlockingNettyContextTest {
 				                                .sendString(Flux.just("Hello", "World", "CONTROL"))
 				                                .then(in.receive()
 				                                        .asString()
-				                                        .takeUntil(s -> s.endsWith("DONE"))
+				                                        .takeUntil(s -> {
+				                                        	return s.endsWith("DONE");
+																								})
 				                                        .map(s -> s.replaceAll("DONE", ""))
 				                                        .filter(s -> !s.isEmpty())
-				                                        .collectList()
+				                                        .toList()
+																								.toFlowable()
 				                                        .doOnNext(data1::set)
 				                                        .doOnNext(System.err::println)
-				                                        .then()));
+				                                        .ignoreElements()
+																								.toFlowable()));
 
 		BlockingNettyContext simpleClient2 =
 				TcpClient.create(simpleServer.getPort())
@@ -111,13 +117,17 @@ public class BlockingNettyContextTest {
 				                                .sendString(Flux.just("How", "Are", "You?", "CONTROL"))
 				                                .then(in.receive()
 				                                        .asString()
-				                                        .takeUntil(s -> s.endsWith("DONE"))
+				                                        .takeUntil(s -> {
+				                                        	return s.endsWith("DONE");
+																								})
 				                                        .map(s -> s.replaceAll("DONE", ""))
 				                                        .filter(s -> !s.isEmpty())
-				                                        .collectList()
+				                                        .toList()
+																								.toFlowable()
 				                                        .doOnNext(data2::set)
 				                                        .doOnNext(System.err::println)
-				                                        .then()));
+																								.ignoreElements()
+				                                        .toFlowable()));
 
 		Thread.sleep(100);
 		System.err.println("STOPPING 1");
@@ -240,7 +250,9 @@ public class BlockingNettyContextTest {
 						         .sendString(
 								         in.receive()
 								           .asString()
-								           .takeUntil(s -> s.endsWith("CONTROL"))
+								           .takeUntil(s -> {
+								           	return s.endsWith("CONTROL");
+													 })
 								           .map(s -> "ECHO: " + s.replaceAll("CONTROL", ""))
 								           .concatWith(Mono.just("DONE"))
 						         )

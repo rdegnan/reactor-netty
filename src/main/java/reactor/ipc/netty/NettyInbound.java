@@ -84,10 +84,10 @@ public interface NettyInbound {
 
 	/**
 	 * A {@link Flux} extension that allows for extra decoding operators
-	 * @return a new {@link ByteBufFlux}
+	 * @return a new {@link ByteBufFlowable}
 	 */
-	default ByteBufFlux receive() {
-		return ByteBufFlux.fromInbound(receiveObject(),
+	default ByteBufFlowable receive() {
+		return ByteBufFlowable.fromInbound(receiveObject(),
 				context().channel()
 				         .alloc());
 	}

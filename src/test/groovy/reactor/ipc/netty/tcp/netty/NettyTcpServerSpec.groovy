@@ -57,7 +57,6 @@ class NettyTcpServerSpec extends Specification {
 	  o.send(i.receive()
 			  .asString()
 			  .map(jsonDecoder)
-			  .log()
 			  .take(1)
 			  .map { pojo ->
 		assert pojo.name == "John Doe"
@@ -87,11 +86,10 @@ class NettyTcpServerSpec extends Specification {
 	  i.context().addHandlerLast(new JsonObjectDecoder())
 	  i.receive()
 			  .asString()
-			  .log('serve')
 			  .map { bb -> m.readValue(bb, Pojo[]) }
 			  .concatMap { d -> Flux.fromArray(d) }
 			  .window(5)
-			  .concatMap { w -> o.send(w.collectList().map(jsonEncoder)) }
+			  .concatMap { w -> o.send(w.toList().map(jsonEncoder).toFlowable()) }
 	}.block(Duration.ofSeconds(30))
 
 	def client = TcpClient.create(server.address().port)
@@ -102,12 +100,10 @@ class NettyTcpServerSpec extends Specification {
 			  .asString()
 			  .map { bb -> m.readValue(bb, Pojo[]) }
 			  .concatMap { d -> Flux.fromArray(d) }
-			  .log('receive')
 			  .subscribe { latch.countDown() }
 
 	  o.send(Flux.range(1, 10)
 			  .map { new Pojo(name: 'test' + it) }
-			  .log('send')
 			  .collectList()
 			  .map(jsonEncoder))
 	    .neverComplete()
@@ -142,8 +138,7 @@ class NettyTcpServerSpec extends Specification {
 						  .collectList()
 						  .map(jsonEncoder)
 				}
-	  		  .doOnComplete { println 'wow ' + it }
-			  .log('flatmap-retry'))
+	  		  .doOnComplete { println 'wow ' + it })
 	}.block(Duration.ofSeconds(30))
 
 	def client = TcpClient.create("localhost", server.address().port)
@@ -152,12 +147,10 @@ class NettyTcpServerSpec extends Specification {
 			  .asString()
 			  .map { bb -> m.readValue(bb, Pojo[]) }
 			  .concatMap { d -> Flux.fromArray(d) }
-			  .log('receive')
 			  .subscribe { latch.countDown() }
 
 	  o.send(Flux.range(1, elem)
 			  .map { new Pojo(name: 'test' + it) }
-			  .log('send')
 			  .collectList().map(jsonEncoder))
 			  .neverComplete()
 
