@@ -29,15 +29,11 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @author Stephane Maldini
  */
 final class DefaultLoopEpollDetector {
-
-	static final Logger log = Loggers.getLogger(DefaultLoopEpollDetector.class);
 
 	private static final boolean epoll;
 
@@ -50,9 +46,6 @@ final class DefaultLoopEpollDetector {
 		catch (ClassNotFoundException cnfe){
 		}
 		epoll = epollCheck;
-		if (log.isDebugEnabled()) {
-			log.debug("Default epoll " + "support : " + epoll);
-		}
 	}
 
 	public static EventLoopGroup newEventLoopGroup(int threads, ThreadFactory factory) {

@@ -16,13 +16,13 @@
 
 package reactor.ipc.netty.options;
 
+import io.reactivex.functions.Function;
 import org.junit.Before;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.InetSocketAddress;
-import java.util.function.Function;
 
 public class ClientOptionsTest {
 	private ClientOptions.Builder<?> builder;
@@ -92,8 +92,8 @@ public class ClientOptionsTest {
 		assertThat(opsBuilder.build().useProxy("hostName")).isTrue();
 		assertThat(opsBuilder.build().useProxy(new InetSocketAddress("google.com", 123))).isTrue();
 
-		Function<ClientProxyOptions.TypeSpec, ClientProxyOptions.Builder> extProxyBuilder = 
-				proxyBuilder.andThen(ops -> ops.nonProxyHosts("localhost|127\\.0\\.0\\.1"));
+		Function<ClientProxyOptions.TypeSpec, ClientProxyOptions.Builder> extProxyBuilder = ops ->
+				proxyBuilder.apply(ops).nonProxyHosts("localhost|127\\.0\\.0\\.1");
 		opsBuilder.proxy(extProxyBuilder);
 		assertThat(opsBuilder.build().useProxy((String) null)).isTrue();
 		assertThat(opsBuilder.build().useProxy((InetSocketAddress) null)).isTrue();

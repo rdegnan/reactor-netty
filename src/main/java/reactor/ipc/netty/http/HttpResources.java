@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.reactivex.Completable;
 import io.reactivex.functions.BiFunction;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.TcpResources;
@@ -84,9 +83,9 @@ public final class HttpResources extends TcpResources {
 	/**
 	 * Prepare to shutdown the global {@link TcpResources} without resetting them,
 	 * effectively cleaning up associated resources without creating new ones. This only
-	 * occurs when the returned {@link Mono} is subscribed to.
+	 * occurs when the returned {@link Completable} is subscribed to.
 	 *
-	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
+	 * @return a {@link Completable} triggering the {@link #shutdown()} when subscribed to.
 	 */
 	public static Completable shutdownLater() {
 		return Completable.defer(() -> {

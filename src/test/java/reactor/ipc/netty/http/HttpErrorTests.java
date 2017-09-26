@@ -17,12 +17,12 @@
 package reactor.ipc.netty.http;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
 import org.junit.Assert;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
@@ -41,16 +41,16 @@ public class HttpErrorTests {
 				                                "/",
 				                                (httpServerRequest, httpServerResponse) -> {
 					                                return httpServerResponse.sendString(
-							                                Mono.error(new IllegalArgumentException()));
+							                                Flowable.error(new IllegalArgumentException()));
 				                                }))
-		                                .block(Duration.ofSeconds(30));
+		                                .blockingGet();
 
 		HttpClient client = HttpClient.create(opt -> opt.host("localhost")
 		                                                .port(server.address().getPort())
 		                                                .disablePool());
 
 		HttpClientResponse r = client.get("/")
-		                             .block(Duration.ofSeconds(30));
+		                             .blockingGet();
 
 		List<String> result = r.receive()
 		                    .asString(StandardCharsets.UTF_8)
@@ -59,7 +59,7 @@ public class HttpErrorTests {
 
 		System.out.println("END");
 
-		FutureCompletable.from(r.context().channel().closeFuture()).block(Duration.ofSeconds(30));
+		FutureCompletable.from(r.context().channel().closeFuture()).blockingAwait(30, TimeUnit.SECONDS);
 
 		Assert.assertTrue(result.isEmpty());
 		Assert.assertTrue(r.isDisposed());

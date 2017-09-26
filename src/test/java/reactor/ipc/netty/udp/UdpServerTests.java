@@ -26,7 +26,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -39,16 +38,15 @@ import java.util.concurrent.TimeUnit;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.util.NetUtil;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
+import io.reactivex.schedulers.Schedulers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -57,8 +55,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
  * @author Stephane Maldini
  */
 public class UdpServerTests {
-
-	final Logger log = Loggers.getLogger(getClass());
+	/**
+	 * Default pool size, initialized to the number of processors available to the runtime
+	 * on init (but with a minimum value of 4).
+	 *
+	 * @see Runtime#availableProcessors()
+	 */
+	public static final int DEFAULT_POOL_SIZE = Math.max(Runtime.getRuntime().availableProcessors(), 4);
 
 	ExecutorService threadPool;
 
@@ -71,7 +74,7 @@ public class UdpServerTests {
 	public void cleanup() throws InterruptedException {
 		threadPool.shutdown();
 		threadPool.awaitTermination(5, TimeUnit.SECONDS);
-		Schedulers.shutdownNow();
+		Schedulers.shutdown();
 	}
 
 	@Test
@@ -89,7 +92,7 @@ public class UdpServerTests {
 					                                     latch.countDown();
 				                                     }
 			                                     });
-			                                   return Flux.never();
+			                                   return Completable.never();
 		                                   })
 		                                     .doOnSuccess(v -> {
 			                                   try {
@@ -112,7 +115,7 @@ public class UdpServerTests {
 				                                   e.printStackTrace();
 			                                   }
 		                                   })
-		                                     .block(Duration.ofSeconds(30));
+		                                     .blockingGet();
 
 		assertThat("latch was counted down", latch.await(10, TimeUnit.SECONDS));
 		server.dispose();
@@ -122,12 +125,11 @@ public class UdpServerTests {
 	@SuppressWarnings("unchecked")
 	public void supportsUdpMulticast() throws Exception {
 		final int port = SocketUtils.findAvailableUdpPort();
-		final CountDownLatch latch = new CountDownLatch(Schedulers.DEFAULT_POOL_SIZE);
+		final CountDownLatch latch = new CountDownLatch(DEFAULT_POOL_SIZE);
 		Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
 
 		final InetAddress multicastGroup = InetAddress.getByName("230.0.0.1");
 		final NetworkInterface multicastInterface = findMulticastEnabledIPv4Interface();
-		log.info("Using network interface '{}' for multicast", multicastInterface);
 		final Collection<NettyContext> servers = new ArrayList<>();
 
 		for (int i = 0; i < 4; i++) {
@@ -136,36 +138,35 @@ public class UdpServerTests {
 					                             .connectAddress(() -> new InetSocketAddress(port))
 					                             .protocolFamily(InternetProtocolFamily.IPv4))
 					         .newHandler((in, out) -> {
-						         Flux.<NetworkInterface>generate(s -> {
+						         Flowable.<NetworkInterface>generate(s -> {
 					                             if (ifaces.hasMoreElements()) {
-						                             s.next(ifaces.nextElement());
+						                             s.onNext(ifaces.nextElement());
 					                             }
 					                             else {
-						                             s.complete();
+						                             s.onComplete();
 					                             }
-				                             }).flatMap(iface -> {
+				                             }).flatMapCompletable(iface -> {
 					                             if (isMulticastEnabledIPv4Interface(iface)) {
 						                             return in.join(multicastGroup,
 								                             iface);
 					                             }
-					                             return Flux.empty();
+					                             return Completable.complete();
 				                             })
-				                               .thenMany(in.receive()
+				                               .andThen(in.receive()
 				                                           .asByteArray())
-				                               .log()
 				                               .subscribe(bytes -> {
 					                               if (bytes.length == 1024) {
 						                               latch.countDown();
 					                               }
 				                               });
-				                             return Flux.never();
+				                             return Completable.never();
 			                             })
-					         .block(Duration.ofSeconds(30));
+					         .blockingGet();
 
 			servers.add(server);
 		}
 
-		for (int i = 0; i < Schedulers.DEFAULT_POOL_SIZE; i++) {
+		for (int i = 0; i < DEFAULT_POOL_SIZE; i++) {
 			threadPool.submit(() -> {
 				try {
 					MulticastSocket multicast = new MulticastSocket();

@@ -38,8 +38,6 @@ import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.ipc.netty.options.ServerOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * * A TCP server connector.
@@ -167,9 +165,6 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 			b.localAddress(local);
 			ContextHandler<Channel> contextHandler = doHandler(handler, sink);
 			b.childHandler(contextHandler);
-			if(log.isDebugEnabled()){
-				b.handler(loggingHandler());
-			}
 			contextHandler.setFuture(b.bind());
 		});
 	}
@@ -214,8 +209,6 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	static final LoggingHandler loggingHandler = new LoggingHandler(TcpServer.class);
-
-	static final Logger log = Loggers.getLogger(TcpServer.class);
 
 	public static final class Builder {
 		private String bindAddress = NetUtil.LOCALHOST.getHostAddress();

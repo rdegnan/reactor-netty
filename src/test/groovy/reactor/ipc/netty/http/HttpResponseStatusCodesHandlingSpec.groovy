@@ -15,12 +15,10 @@
  */
 package reactor.ipc.netty.http
 
-import reactor.core.publisher.Flux
+import io.reactivex.Flowable
 import reactor.ipc.netty.http.client.HttpClient
 import reactor.ipc.netty.http.server.HttpServer
 import spock.lang.Specification
-
-import java.time.Duration
 
 /**
  * @author Anatoly Kadyshev
@@ -33,7 +31,7 @@ class HttpResponseStatusCodesHandlingSpec extends Specification {
 	  r.post('/test') {
 		req, res -> res.send(req.receive().log('server-received'))
 	  }
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet()
 
 	def client = HttpClient.create("localhost", server.address().port)
 
@@ -43,20 +41,18 @@ class HttpResponseStatusCodesHandlingSpec extends Specification {
 	  req.header('Content-Type', 'text/plain')
 
 	  //return a producing stream to send some data along the request
-	  req.sendString(Flux
-			  .just("Hello")
-			  .log('client-send'))
+	  req.sendString(Flowable
+			  .just("Hello"))
 	}
-	.flatMapMany { replies ->
+	.flatMapPublisher { replies ->
 	  //successful request, listen for replies
 	  replies
 			  .receive()
 	  		  .asString()
-			  .log('client-received')
 			  .doOnNext { s -> replyReceived = s
 	  }
 	}
-	.next()
+	.firstElement()
 			.doOnError {
 	  //something failed during the request or the reply processing
 	  println "Failed requesting server: $it"
@@ -66,7 +62,7 @@ class HttpResponseStatusCodesHandlingSpec extends Specification {
 	def exceptionMessage = ""
 
 	try {
-	  content.block(Duration.ofSeconds(30))
+	  content.blockingGet()
 	}
 	catch (RuntimeException ex) {
 	  exceptionMessage = ex.getMessage()

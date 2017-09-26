@@ -16,13 +16,12 @@
 
 package reactor.ipc.netty.http.client;
 
+import io.reactivex.functions.Function;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.ipc.netty.options.ClientProxyOptions;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.function.Function;
 
 public class HttpClientOptionsTest {
 	private HttpClientOptions.Builder builder;

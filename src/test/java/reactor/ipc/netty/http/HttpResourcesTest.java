@@ -17,16 +17,16 @@ package reactor.ipc.netty.http;
 
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
+import io.reactivex.Completable;
+import io.reactivex.functions.Consumer;
 import org.junit.Before;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -52,8 +52,8 @@ public class HttpResourcesTest {
 			}
 
 			@Override
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> loopDisposed.set(true));
+			public Completable disposeLater() {
+				return Completable.complete().doOnComplete(() -> loopDisposed.set(true));
 			}
 
 			@Override
@@ -65,13 +65,13 @@ public class HttpResourcesTest {
 		poolResources = new PoolResources() {
 			@Override
 			public ChannelPool selectOrCreate(SocketAddress address,
-					Supplier<? extends Bootstrap> bootstrap,
-					Consumer<? super Channel> onChannelCreate, EventLoopGroup group) {
+																				Supplier<? extends Bootstrap> bootstrap,
+																				Consumer<? super Channel> onChannelCreate, EventLoopGroup group) {
 				return null;
 			}
 
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> poolDisposed.set(true));
+			public Completable disposeLater() {
+				return Completable.complete().doOnComplete(() -> poolDisposed.set(true));
 			}
 
 			@Override
@@ -91,7 +91,7 @@ public class HttpResourcesTest {
 		assertThat(testResources.isDisposed()).isFalse();
 
 		testResources.disposeLater()
-		             .doOnSuccess(c -> assertThat(testResources.isDisposed()).isTrue())
+		             .doOnComplete(() -> assertThat(testResources.isDisposed()).isTrue())
 		             .subscribe();
 		//not immediately disposed when subscribing
 		assertThat(testResources.isDisposed()).as("immediate status on disposeLater subscribe").isFalse();
@@ -108,7 +108,7 @@ public class HttpResourcesTest {
 			HttpResources.shutdownLater();
 			assertThat(newHttpResources.isDisposed()).isFalse();
 
-			HttpResources.shutdownLater().block();
+			HttpResources.shutdownLater().blockingAwait();
 			assertThat(newHttpResources.isDisposed()).as("shutdownLater completion").isTrue();
 
 			assertThat(HttpResources.httpResources.get()).isNull();

@@ -29,8 +29,6 @@ import org.reactivestreams.Publisher;
 import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @author Stephane Maldini
@@ -75,8 +73,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.joinGroup(multicastAddress);
 		}
 
-		return FutureCompletable.from(future)
-		                 .doOnComplete(() -> log.info("JOIN {}", multicastAddress));
+		return FutureCompletable.from(future);
 	}
 
 	/**
@@ -101,9 +98,6 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.leaveGroup(multicastAddress);
 		}
 
-		return FutureCompletable.from(future)
-		                 .doOnComplete(() -> log.info("JOIN {}", multicastAddress));
+		return FutureCompletable.from(future);
 	}
-
-	static final Logger log = Loggers.getLogger(UdpOperations.class);
 }

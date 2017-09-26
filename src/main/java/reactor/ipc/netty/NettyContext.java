@@ -24,8 +24,8 @@ import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Action;
-import reactor.core.Disposable;
 
 /**
  * Hold contextual information for the underlying {@link Channel}

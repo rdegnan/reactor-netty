@@ -59,14 +59,6 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 
 	@Override
 	public void fireContextError(Throwable err) {
-		if (AbortedException.isConnectionReset(err)) {
-			if (log.isDebugEnabled()) {
-				log.error("Connection closed remotely", err);
-			}
-		}
-		else if (log.isErrorEnabled()) {
-			log.error("Handler failure while no child channelOperation was present", err);
-		}
 	}
 
 	@Override

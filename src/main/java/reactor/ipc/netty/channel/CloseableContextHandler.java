@@ -30,8 +30,6 @@ import io.reactivex.MaybeEmitter;
 import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.NettyOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @param <CHANNEL> the channel type
@@ -40,8 +38,6 @@ import reactor.util.Loggers;
  */
 abstract class CloseableContextHandler<CHANNEL extends Channel>
 		extends ContextHandler<CHANNEL> implements ChannelFutureListener {
-
-	static final Logger log = Loggers.getLogger(CloseableContextHandler.class);
 
 	ChannelFuture f;
 
@@ -62,7 +58,6 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 	public final void operationComplete(ChannelFuture f) throws Exception {
 		if (!f.isSuccess()) {
 			if(f.isCancelled()){
-				log.debug("Cancelled {}", f.channel().toString());
 				return;
 			}
 			if (f.cause() != null) {
@@ -85,9 +80,6 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 		if (this.f != null) {
 			future.cancel(true);
 			return;
-		}
-		if(log.isDebugEnabled()){
-			log.debug("Connecting new channel: {}", future.toString());
 		}
 		this.f = (ChannelFuture) future;
 

@@ -21,11 +21,10 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.reactivex.Completable;
 import io.reactivex.CompletableSource;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -133,7 +132,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http response.
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Completable} successful on committed response
 	 * @see #send(Publisher)
 	 */
 	default Completable send(){
@@ -150,7 +149,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send 404 status {@link HttpResponseStatus#NOT_FOUND}.
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Completable} successful on flush confirmation
 	 */
 	Completable sendNotFound();
 
@@ -160,16 +159,16 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @param location the location to redirect to
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Completable} successful on flush confirmation
 	 */
 	Completable sendRedirect(String location);
 
 	/**
 	 * Upgrade connection to Websocket. Mono and Callback are invoked on handshake
-	 * success, otherwise the returned {@link Mono} fails.
+	 * success, otherwise the returned {@link Completable} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Completable} completing when upgrade is confirmed
 	 */
 	default Completable sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		return sendWebsocket(uri(), websocketHandler);
@@ -177,12 +176,12 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 
 	/**
 	 * Upgrade connection to Websocket with optional subprotocol(s). Mono and Callback
-	 * are invoked on handshake success, otherwise the returned {@link Mono} fails.
+	 * are invoked on handshake success, otherwise the returned {@link Completable} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Completable} completing when upgrade is confirmed
 	 */
 	Completable sendWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler);

@@ -15,17 +15,15 @@
  */
 package reactor.ipc.netty.http.client;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.concurrent.TimeUnit;
 
-import java.time.Duration;
-
+import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 import org.junit.Test;
 
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
-import reactor.test.StepVerifier;
 
 /**
  * @author Violeta Georgieva
@@ -75,44 +73,42 @@ public class HttpClientWSOperationsTest {
 							res.status(token);
 							return res.send();
 						}
-						return res.sendWebsocket(serverSubprotocol, (i, o) -> o.sendString(Mono.just("test")));
+						return res.sendWebsocket(serverSubprotocol, (i, o) -> o.sendString(Flowable.just("test")));
 					})
 			)
-			.block(Duration.ofSeconds(30));
+			.blockingGet();
 
-		Mono<HttpClientResponse> response =
+		Maybe<HttpClientResponse> response =
 			HttpClient.create(httpServer.address().getPort())
-			          .get("/ws", request -> Mono.just(request.failOnClientError(clientError)
+			          .get("/ws", request -> Maybe.just(request.failOnClientError(clientError)
 			                                                  .failOnServerError(serverError))
-			                                     .transform(req -> doLoginFirst(req, httpServer.address().getPort()))
-			                                     .flatMapMany(req -> ws(req, clientSubprotocol)))
-			          .switchIfEmpty(Mono.error(new Exception()));
+			                                     .to(req -> doLoginFirst(req, httpServer.address().getPort()))
+			                                     .flatMapCompletable(req -> ws(req, clientSubprotocol)))
+			          .switchIfEmpty(Maybe.error(new Exception()));
 
 
 		if (clientError || serverError) {
-			StepVerifier.create(response)
-			            .expectError()
-			            .verify(Duration.ofSeconds(30));
+			response.test()
+					.awaitDone(30, TimeUnit.SECONDS)
+					.assertError(t -> true);
 		}
 		else {
-			StepVerifier.create(response)
-			            .assertNext(res ->
-			                assertThat(res.status().code()).isEqualTo(serverStatus == 200 ? 101 : serverStatus))
-			            .expectComplete()
-			            .verify(Duration.ofSeconds(30));
+			response.test()
+					.awaitDone(30, TimeUnit.SECONDS)
+					.assertValue(res ->
+							res.status().code() == (serverStatus == 200 ? 101 : serverStatus))
+					.assertComplete();
 		}
 	}
 
-	private Mono<HttpClientRequest> doLoginFirst(Mono<HttpClientRequest> request, int port) {
-		return Mono.zip(request, login(port))
-		           .map(tuple -> {
-		               HttpClientRequest req = tuple.getT1();
-		               req.addHeader("Authorization", tuple.getT2());
-		               return req;
-		           });
+	private Maybe<HttpClientRequest> doLoginFirst(Maybe<HttpClientRequest> request, int port) {
+		return request.zipWith(login(port), (req, auth) -> {
+			req.addHeader("Authorization", auth);
+			return req;
+		});
 	}
 
-	private Mono<String> login(int port) {
+	private Maybe<String> login(int port) {
 		return HttpClient.create(port)
 		                 .post("/login", req -> req.failOnClientError(false)
 		                                           .failOnServerError(false))

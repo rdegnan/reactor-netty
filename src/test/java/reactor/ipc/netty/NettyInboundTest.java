@@ -20,8 +20,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.reactivex.Flowable;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
 
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.*;
@@ -42,8 +42,8 @@ public class NettyInboundTest {
 			}
 
 			@Override
-			public Flux<?> receiveObject() {
-				return Flux.empty();
+			public Flowable<?> receiveObject() {
+				return Flowable.empty();
 			}
 		};
 

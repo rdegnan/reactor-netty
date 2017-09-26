@@ -18,6 +18,8 @@ package reactor.ipc.netty.channel;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Map.Entry;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -27,8 +29,6 @@ import io.reactivex.MaybeEmitter;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.options.ClientOptions;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 /**
  * @param <CHANNEL> the channel type
@@ -76,10 +76,10 @@ final class ClientContextHandler<CHANNEL extends Channel>
 	}
 
 	@Override
-	protected Tuple2<String, Integer> getSNI() {
+	protected Entry<String, Integer> getSNI() {
 		if (providedAddress instanceof InetSocketAddress) {
 			InetSocketAddress ipa = (InetSocketAddress) providedAddress;
-			return Tuples.of(ipa.getHostName(), ipa.getPort());
+			return new SimpleImmutableEntry<>(ipa.getHostName(), ipa.getPort());
 		}
 		return null;
 	}
@@ -94,9 +94,6 @@ final class ClientContextHandler<CHANNEL extends Channel>
 		ProxyHandler proxy = clientOptions.useProxy(providedAddress) ? clientOptions.getProxyOptions().newProxyHandler() : null;
 		if (proxy != null) {
 			pipeline.addFirst(NettyPipeline.ProxyHandler, proxy);
-			if(log.isDebugEnabled()){
-				pipeline.addFirst(new LoggingHandler("reactor.ipc.netty.proxy"));
-			}
 		}
 	}
 }

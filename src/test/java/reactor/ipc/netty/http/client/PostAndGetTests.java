@@ -21,21 +21,19 @@ import java.net.SocketAddress;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.time.Duration;
-import java.util.function.BiFunction;
 
+import io.reactivex.CompletableSource;
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import org.apache.http.HttpException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.server.HttpServerRequest;
 import reactor.ipc.netty.http.server.HttpServerResponse;
-import reactor.util.Loggers;
 
 /**
  * @author tjreactive
@@ -57,10 +55,10 @@ public class PostAndGetTests {
 			                       routes.get("/get/{name}", getHandler())
 			                             .post("/post", postHandler());
 		                       })
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingGet();
 	}
 
-	BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> getHandler() {
+	BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> getHandler() {
 		return (req, resp) -> {
 			req.requestHeaders()
 			   .entries()
@@ -79,11 +77,11 @@ public class PostAndGetTests {
 			System.out.println(String.format("%s from thread %s",
 					response.toString(),
 					Thread.currentThread()));
-			return resp.sendString(Flux.just(response.toString()));
+			return resp.sendString(Flowable.just(response.toString()));
 		};
 	}
 
-	BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> postHandler() {
+	BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> postHandler() {
 		return (req, resp) -> {
 
 			req.requestHeaders()
@@ -103,7 +101,7 @@ public class PostAndGetTests {
 						                          "%s from thread %s",
 						                          response.toString(),
 						                          Thread.currentThread()));
-				                          return Flux.just(response.toString());
+				                          return Flowable.just(response.toString());
 			                          }));
 		};
 	}
@@ -162,8 +160,6 @@ public class PostAndGetTests {
 			while (channel.read(buf) > -1) {
 			}
 			String response = new String(buf.array());
-			Loggers.getLogger(PostAndGetTests.class)
-			       .info("post: << " + "Response: %s", response);
 			channel.close();
 		}
 		catch (IOException e) {

@@ -26,8 +26,8 @@ import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
 import io.reactivex.Completable;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
-import reactor.core.Disposable;
 
 /**
  * A {@link io.netty.channel.pool.ChannelPool} selector with associated factories.
@@ -162,6 +162,11 @@ public interface PoolResources extends Disposable {
 	default void dispose() {
 		//noop default
 		disposeLater().subscribe();
+	}
+
+	@Override
+	default boolean isDisposed() {
+		return false;
 	}
 
 	/**

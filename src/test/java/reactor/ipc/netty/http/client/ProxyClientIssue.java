@@ -30,10 +30,10 @@ import io.netty.channel.ChannelOption;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import org.junit.Ignore;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.server.HttpServerRequest;
 import reactor.ipc.netty.http.server.HttpServerResponse;
@@ -84,7 +84,7 @@ public class ProxyClientIssue {
 				(req, res) -> res.header("Content-length", String.valueOf(content.length))
 				                 .header("Content-type", "application/octet-stream")
 				                 .header("Connection", "Close")
-				                 .sendByteArray(Flux.just(content))));
+				                 .sendByteArray(Flowable.just(content))));
 
 	}
 
@@ -95,15 +95,15 @@ public class ProxyClientIssue {
 		int concurrencyLevel = 10;
 		int requestCount = 100;
 
-		List<Mono<Void>> parallelFlows = new ArrayList<>();
+		List<Completable> parallelFlows = new ArrayList<>();
 		for (int i = 0; i < concurrencyLevel; i++) {
-			Mono<Void> currentRequestFlow = Mono.empty();
+			Completable currentRequestFlow = Completable.complete();
 			for (int j = 0; j < requestCount; j++) {
-				currentRequestFlow = currentRequestFlow.then(HttpClient.create()
+				currentRequestFlow = currentRequestFlow.andThen(HttpClient.create()
 				                                                       .get("http://localhost:" + PROXY_PORT + "/0/content/" + ThreadLocalRandom.current()
 				                                                                                                                                .nextInt(
 						                                                                                                                                1000))
-				                                                       .flatMapMany(
+				                                                       .flatMapPublisher(
 						                                                       clientResponse -> {
 							                                                       HttpResponseStatus
 									                                                       statusCode =
@@ -118,12 +118,12 @@ public class ProxyClientIssue {
 							                                                       }
 							                                                       return clientResponse.receive();
 						                                                       })
-				                                                       .then());
+				                                                       .ignoreElements());
 			}
 			parallelFlows.add(currentRequestFlow);
 		}
-		Flux.merge(parallelFlows)
-		    .blockLast();
+		Completable.merge(parallelFlows)
+		    .blockingAwait();
 	}
 
 	@Test
@@ -135,14 +135,14 @@ public class ProxyClientIssue {
 		server.startRouterAndAwait(routes -> routes.get("/0/**", this::proxy));
 	}
 
-	private Mono<Void> proxy(HttpServerRequest request, HttpServerResponse response) {
+	private Completable proxy(HttpServerRequest request, HttpServerResponse response) {
 		return HttpClient.create()
 		                 .get(URI.create("http://localhost:" + CONTENT_SERVER_PORT +
 						                 "/" + request.path())
 		                         .toString(),
 				                 req -> req.headers(filterRequestHeaders(request.requestHeaders())))
 
-		                 .flatMap(targetResponse -> response.headers(filterResponseHeaders(targetResponse.responseHeaders()))
+		                 .flatMapCompletable(targetResponse -> response.headers(filterResponseHeaders(targetResponse.responseHeaders()))
 		                                                    .send(targetResponse.receive().retain())
 		                                                    .then());
 	}

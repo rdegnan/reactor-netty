@@ -18,6 +18,7 @@ package reactor.ipc.netty.channel;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import io.netty.channel.Channel;
@@ -39,7 +40,6 @@ import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.options.ClientOptions;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.ipc.netty.options.ServerOptions;
-import reactor.util.function.Tuple2;
 
 /**
  * A one time-set channel pipeline callback to emit {@link NettyContext} state for clean
@@ -295,7 +295,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public void accept(Channel channel) {
+	public void accept(Channel channel) throws Exception {
 		doPipeline(channel);
 		if (options.onChannelInit() != null) {
 			if (options.onChannelInit()
@@ -347,7 +347,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 		return false;
 	}
 
-	protected Tuple2<String, Integer> getSNI() {
+	protected Entry<String, Integer> getSNI() {
 		return null; //will ignore SNI
 	}
 
@@ -364,7 +364,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 			ContextHandler<?> sink,
 			LoggingHandler loggingHandler,
 			boolean secure,
-			Tuple2<String, Integer> sniInfo,
+			Entry<String, Integer> sniInfo,
 			ChannelPipeline pipeline) {
 		SslHandler sslHandler = secure
 				? options.getSslHandler(pipeline.channel().alloc(), sniInfo)

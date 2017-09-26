@@ -22,9 +22,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.cert.CertificateException;
-import java.time.Duration;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
@@ -40,13 +40,13 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.CharsetUtil;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import io.reactivex.Maybe;
+import io.reactivex.subjects.MaybeSubject;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
-import reactor.core.publisher.DirectProcessor;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.channel.AbortedException;
@@ -54,7 +54,6 @@ import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.options.ClientProxyOptions.Proxy;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.TcpServer;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,42 +66,39 @@ public class HttpClientTest {
 	@Test
 	public void abort() throws Exception {
 		NettyContext x = TcpServer.create("localhost", 0)
-		                          .newHandler((in, out) -> in.receive()
-		                                                     .take(1)
-		                                                     .ignoreElements()
-		                                                     .andThen(Flux.defer(() ->
-						                                                     out.context(c ->
-								                                                     c.addHandlerFirst(new HttpResponseEncoder()))
-						                                                        .sendObject(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.ACCEPTED))
-						                                                        .then(Mono.delay(Duration.ofSeconds(2)).then()))
-		                                                     )
-		                          )
-		                          .block(Duration.ofSeconds(30));
+				.newHandler((in, out) -> in.receive()
+						.take(1)
+						.ignoreElements()
+						.andThen(Completable.defer(() ->
+								out.context(c ->
+										c.addHandlerFirst(new HttpResponseEncoder()))
+										.sendObject(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.ACCEPTED))
+										.then(Completable.timer(2, TimeUnit.SECONDS)))
+						)
+				)
+				.blockingGet();
 
 		PoolResources pool = PoolResources.fixed("test", 1);
 
 		HttpClient.create(opts -> opts.host("localhost")
-		                              .port(x.address().getPort())
-		                              .poolResources(pool))
-		                    .get("/")
-		                    .flatMap(r -> Mono.just(r.status()
-		                                          .code()))
-		                    .log()
-		                    .block(Duration.ofSeconds(30));
+				.port(x.address().getPort())
+				.poolResources(pool))
+				.get("/")
+				.flatMap(r -> Maybe.just(r.status()
+						.code()))
+				.blockingGet();
 
 		HttpClient.create(opts -> opts.host("localhost")
-		                              .port(x.address().getPort())
-		                              .poolResources(pool))
-		          .get("/")
-		          .log()
-		          .block(Duration.ofSeconds(30));
+				.port(x.address().getPort())
+				.poolResources(pool))
+				.get("/")
+				.blockingGet();
 
 		HttpClient.create(opts -> opts.host("localhost")
-		                              .port(x.address().getPort())
-		                              .poolResources(pool))
-		          .get("/")
-		          .log()
-		          .block(Duration.ofSeconds(30));
+				.port(x.address().getPort())
+				.poolResources(pool))
+				.get("/")
+				.blockingGet();
 
 	}
 
@@ -110,7 +106,7 @@ public class HttpClientTest {
 		DefaultFullHttpResponse r = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
 				HttpResponseStatus.ACCEPTED);
 		r.headers()
-		 .set(HttpHeaderNames.CONTENT_LENGTH, 0);
+				.set(HttpHeaderNames.CONTENT_LENGTH, 0);
 		return r;
 	}
 
@@ -118,32 +114,30 @@ public class HttpClientTest {
 	@Ignore
 	public void pipelined() throws Exception {
 		NettyContext x = TcpServer.create("localhost", 0)
-		                          .newHandler((in, out) -> out.context(c -> c.addHandlerFirst(new
-				                          HttpResponseEncoder()))
-		                                                      .sendObject(Flux.just(
-				                                                      response(),
-				                                                      response()))
-		                                                      .neverComplete())
-		                          .block(Duration.ofSeconds(30));
+				.newHandler((in, out) -> out.context(c -> c.addHandlerFirst(new
+						HttpResponseEncoder()))
+						.sendObject(Flowable.just(
+								response(),
+								response()))
+						.neverComplete())
+				.blockingGet();
 
 		PoolResources pool = PoolResources.fixed("test", 1);
 
 		HttpClient.create(opts -> opts.host("localhost")
-		                              .port(x.address().getPort())
-		                              .poolResources(pool))
-		                    .get("/")
-		                    .flatMap(r -> Mono.just(r.status()
-		                                          .code()))
-		                    .log()
-		                    .block(Duration.ofSeconds(30));
+				.port(x.address().getPort())
+				.poolResources(pool))
+				.get("/")
+				.flatMap(r -> Maybe.just(r.status()
+						.code()))
+				.blockingGet();
 
 		try {
 			HttpClient.create(opts -> opts.host("localhost")
-			                              .port(x.address().getPort())
-			                              .poolResources(pool))
-			          .get("/")
-			          .log()
-			          .block(Duration.ofSeconds(30));
+					.port(x.address().getPort())
+					.poolResources(pool))
+					.get("/")
+					.blockingGet();
 		}
 		catch (AbortedException ae) {
 			return;
@@ -156,28 +150,28 @@ public class HttpClientTest {
 	public void backpressured() throws Exception {
 		Path resource = Paths.get(getClass().getResource("/public").toURI());
 		NettyContext c = HttpServer.create(0)
-		                           .newRouter(routes -> routes.directory("/test", resource))
-		                           .block(Duration.ofSeconds(30));
+				.newRouter(routes -> routes.directory("/test", resource))
+				.blockingGet();
 
-		Mono<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
-		                                            .get("/test/test.css");
+		Maybe<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
+				.get("/test/test.css");
 
-		Mono<String> page = remote
-				.flatMapMany(r -> r.receive()
-				               .asString()
-				               .rebatchRequests(1))
+		Maybe<String> page = remote
+				.flatMapPublisher(r -> r.receive()
+						.asString()
+						.rebatchRequests(1))
 				.reduce(String::concat);
 
-		Mono<String> cancelledPage = remote
-				.flatMapMany(r -> r.receive()
-				               .asString()
-				               .take(5)
-				               .rebatchRequests(1))
+		Maybe<String> cancelledPage = remote
+				.flatMapPublisher(r -> r.receive()
+						.asString()
+						.take(5)
+						.rebatchRequests(1))
 				.reduce(String::concat);
 
-		page.block(Duration.ofSeconds(30));
-		cancelledPage.block(Duration.ofSeconds(30));
-		page.block(Duration.ofSeconds(30));
+		page.blockingGet();
+		cancelledPage.blockingGet();
+		page.blockingGet();
 		c.dispose();
 	}
 
@@ -186,35 +180,35 @@ public class HttpClientTest {
 
 		CountDownLatch latch = new CountDownLatch(1);
 		NettyContext c = HttpServer.create(0)
-		                           .newHandler((req, resp) -> {
-			                           req.context()
-			                              .onClose(latch::countDown);
+				.newHandler((req, resp) -> {
+					req.context()
+							.onClose(latch::countDown);
 
-			                           return Flux.interval(Duration.ofSeconds(1))
-			                                      .flatMap(d -> {
-				                                      req.context()
-				                                         .channel()
-				                                         .config()
-				                                         .setAutoRead(true);
+					return Flowable.interval(1, TimeUnit.SECONDS)
+							.flatMapCompletable(d -> {
+								req.context()
+										.channel()
+										.config()
+										.setAutoRead(true);
 
-				                                      return resp.sendObject(Unpooled.EMPTY_BUFFER)
-				                                                 .then()
-				                                                 .doOnSuccess(x -> req.context()
-				                                                                      .channel()
-				                                                                      .config()
-				                                                                      .setAutoRead(
-						                                                                      false));
-			                                      });
-		                           })
-		                           .block(Duration.ofSeconds(30));
+								return resp.sendObject(Unpooled.EMPTY_BUFFER)
+										.then()
+										.doOnComplete(() -> req.context()
+												.channel()
+												.config()
+												.setAutoRead(
+														false));
+							});
+				})
+				.blockingGet();
 
-		Mono<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
-		                                            .get("/");
+		Maybe<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
+				.get("/");
 
-		HttpClientResponse r = remote.block();
+		HttpClientResponse r = remote.blockingGet();
 		r.dispose();
 		while (r.channel()
-		        .isActive()) {
+				.isActive()) {
 		}
 		latch.await();
 		c.dispose();
@@ -223,60 +217,60 @@ public class HttpClientTest {
 	@Test
 	@Ignore
 	public void proxy() throws Exception {
-		Mono<HttpClientResponse> remote = HttpClient.create(o -> o.proxy(ops -> ops.type(Proxy.HTTP)
-		                                                                           .host("127.0.0.1")
-		                                                                           .port(8888)))
-		          .get("https://projectreactor.io",
-				          c -> c.followRedirect()
-				                .sendHeaders());
+		Maybe<HttpClientResponse> remote = HttpClient.create(o -> o.proxy(ops -> ops.type(Proxy.HTTP)
+				.host("127.0.0.1")
+				.port(8888)))
+				.get("https://projectreactor.io",
+						c -> c.followRedirect()
+								.sendHeaders());
 
-		Mono<String> page = remote
-				.flatMapMany(r -> r.receive()
-				               .retain()
-				               .asString()
-				               .rebatchRequests(1))
+		Maybe<String> page = remote
+				.flatMapPublisher(r -> r.receive()
+						.retain()
+						.asString()
+						.rebatchRequests(1))
 				.reduce(String::concat);
 
-		page.block(Duration.ofSeconds(30));
+		page.blockingGet();
 	}
 
 	@Test
 	@Ignore
 	public void nonProxyHosts() throws Exception {
 		HttpClient client = HttpClient.create(o -> o.proxy(ops -> ops.type(Proxy.HTTP)
-		                                                             .host("127.0.0.1")
-		                                                             .port(8888)
-		                                                             .nonProxyHosts("spring.io")));
-		Mono<HttpClientResponse> remote1 = client.get("https://projectreactor.io",
-		                                                 c -> c.followRedirect()
-		                                                       .sendHeaders());
-		Mono<HttpClientResponse> remote2 = client.get("https://spring.io",
-		                                                 c -> c.followRedirect()
-		                                                       .sendHeaders());
+				.host("127.0.0.1")
+				.port(8888)
+				.nonProxyHosts("spring.io")));
+		Maybe<HttpClientResponse> remote1 = client.get("https://projectreactor.io",
+				c -> c.followRedirect()
+						.sendHeaders());
+		Maybe<HttpClientResponse> remote2 = client.get("https://spring.io",
+				c -> c.followRedirect()
+						.sendHeaders());
 
-		Mono<String> page1 = remote1
-				.flatMapMany(r -> r.receive()
-				               .retain()
-				               .asString()
-				               .rebatchRequests(1))
+		Maybe<String> page1 = remote1
+				.flatMapPublisher(r -> r.receive()
+						.retain()
+						.asString()
+						.rebatchRequests(1))
 				.reduce(String::concat);
 
-		Mono<String> page2 = remote2
-				.flatMapMany(r -> r.receive()
-				               .retain()
-				               .asString()
-				               .rebatchRequests(1))
+		Maybe<String> page2 = remote2
+				.flatMapPublisher(r -> r.receive()
+						.retain()
+						.asString()
+						.rebatchRequests(1))
 				.reduce(String::concat);
 
-		StepVerifier.create(page1)
-		            .expectNextMatches(s -> s.contains("<title>Project Reactor</title>"))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		page1.test()
+				.assertValue(s -> s.contains("<title>Project Reactor</title>"))
+				.assertComplete()
+				.await(30, TimeUnit.SECONDS);
 
-		StepVerifier.create(page2)
-		            .expectNextMatches(s -> s.contains("<title>Spring</title>"))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		page2.test()
+				.assertValue(s -> s.contains("<title>Spring</title>"))
+				.assertComplete()
+				.await(30, TimeUnit.SECONDS);
 	}
 
 	//@Test
@@ -284,25 +278,23 @@ public class HttpClientTest {
 		InputStream f = getClass().getResourceAsStream("/public/index.html");
 		//Path f = Paths.get("/Users/smaldini/Downloads/IMG_6702.mp4");
 		int res = HttpClient.create("google.com")
-		                    .put("/post",
-				                    c -> c.sendForm(form -> form.multipart(true)
-				                                                .file("test", f)
-				                                                .attr("att1",
-						                                                     "attr2")
-				                                                .file("test2", f))
-				                          .log()
-				                          .then())
-		                    .flatMap(r -> Mono.just(r.status()
-		                                          .code()))
-		                    .block(Duration.ofSeconds(30));
+				.put("/post",
+						c -> c.sendForm(form -> form.multipart(true)
+								.file("test", f)
+								.attr("att1",
+										"attr2")
+								.file("test2", f))
+								.ignoreElements())
+				.flatMap(r -> Maybe.just(r.status()
+						.code()))
+				.blockingGet();
 		res = HttpClient.create("google.com")
-		                .get("/search",
-				                c -> c.followRedirect()
-				                      .sendHeaders())
-		                .flatMap(r -> Mono.just(r.status()
-		                                      .code()))
-		                .log()
-		                .block(Duration.ofSeconds(30));
+				.get("/search",
+						c -> c.followRedirect()
+								.sendHeaders())
+				.flatMap(r -> Maybe.just(r.status()
+						.code()))
+				.blockingGet();
 
 		if (res != 200) {
 			throw new IllegalStateException("test status failed with " + res);
@@ -312,16 +304,20 @@ public class HttpClientTest {
 	@Test
 	public void simpleTest404() {
 		int res = HttpClient.create("google.com")
-		                    .get("/unsupportedURI",
-				                    c -> c.followRedirect()
-				                          .sendHeaders())
-		                    .flatMap(r -> Mono.just(r.status()
-		                                          .code()))
-		                    .log()
-		                    .onErrorResume(HttpClientException.class,
-				                    e -> Mono.just(e.status()
-				                                    .code()))
-		                    .block(Duration.ofSeconds(30));
+				.get("/unsupportedURI",
+						c -> c.followRedirect()
+								.sendHeaders())
+				.flatMap(r -> Maybe.just(r.status()
+						.code()))
+				.onErrorResumeNext(e -> {
+					if (e instanceof HttpClientException) {
+						return Maybe.just(((HttpClientException) e).status()
+								.code());
+					} else {
+						return Maybe.error(e);
+					}
+				})
+				.blockingGet();
 
 		if (res != 404) {
 			throw new IllegalStateException("test status failed with " + res);
@@ -331,16 +327,16 @@ public class HttpClientTest {
 	@Test
 	public void disableChunkForced() throws Exception {
 		HttpClientResponse r = HttpClient.create("google.com")
-		                                 .get("/unsupportedURI",
-				                                 c -> c.chunkedTransfer(false)
-				                                       .failOnClientError(false)
-				                                       .sendString(Flux.just("hello")))
-		                                 .block(Duration.ofSeconds(30));
+				.get("/unsupportedURI",
+						c -> c.chunkedTransfer(false)
+								.failOnClientError(false)
+								.sendString(Flowable.just("hello")))
+				.blockingGet();
 
 		FutureCompletable.from(r.context()
-		                 .channel()
-		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+				.channel()
+				.closeFuture())
+				.blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -348,16 +344,16 @@ public class HttpClientTest {
 	@Test
 	public void disableChunkForced2() throws Exception {
 		HttpClientResponse r = HttpClient.create("google.com")
-		                                 .get("/unsupportedURI",
-				                                 c -> c.chunkedTransfer(false)
-				                                       .failOnClientError(false)
-				                                       .keepAlive(false))
-		                                 .block(Duration.ofSeconds(30));
+				.get("/unsupportedURI",
+						c -> c.chunkedTransfer(false)
+								.failOnClientError(false)
+								.keepAlive(false))
+				.blockingGet();
 
 		FutureCompletable.from(r.context()
-		                 .channel()
-		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+				.channel()
+				.closeFuture())
+				.blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -367,19 +363,19 @@ public class HttpClientTest {
 		PoolResources p = PoolResources.fixed("test", 1);
 
 		HttpClientResponse r = HttpClient.create(opts -> opts.poolResources(p))
-		                                 .get("http://google.com/unsupportedURI",
-				                                 c -> c.failOnClientError(false)
-				                                       .sendHeaders())
-		                                 .block(Duration.ofSeconds(30));
+				.get("http://google.com/unsupportedURI",
+						c -> c.failOnClientError(false)
+								.sendHeaders())
+				.blockingGet();
 
 		HttpClientResponse r2 = HttpClient.create(opts -> opts.poolResources(p))
-		                                  .get("http://google.com/unsupportedURI",
-				                                  c -> c.failOnClientError(false)
-				                                        .sendHeaders())
-		                                  .block(Duration.ofSeconds(30));
+				.get("http://google.com/unsupportedURI",
+						c -> c.failOnClientError(false)
+								.sendHeaders())
+				.blockingGet();
 		Assert.assertTrue(r.context()
-		                   .channel() == r2.context()
-		                                   .channel());
+				.channel() == r2.context()
+				.channel());
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -387,15 +383,15 @@ public class HttpClientTest {
 	@Test
 	public void disableChunkImplicitDefault() throws Exception {
 		HttpClientResponse r = HttpClient.create("google.com")
-		                                 .get("/unsupportedURI",
-				                                 c -> c.chunkedTransfer(false)
-				                                       .failOnClientError(false))
-		                                 .block(Duration.ofSeconds(30));
+				.get("/unsupportedURI",
+						c -> c.chunkedTransfer(false)
+								.failOnClientError(false))
+				.blockingGet();
 
 		FutureCompletable.from(r.context()
-		                 .channel()
-		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+				.channel()
+				.closeFuture())
+				.blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -404,18 +400,18 @@ public class HttpClientTest {
 	public void contentHeader() throws Exception {
 		PoolResources fixed = PoolResources.fixed("test", 1);
 		HttpClientResponse r = HttpClient.create(opts -> opts.poolResources(fixed))
-		                                 .get("http://google.com",
-				                                 c -> c.header("content-length", "1")
-				                                       .failOnClientError(false)
-				                                       .sendString(Mono.just(" ")))
-		                                 .block(Duration.ofSeconds(30));
+				.get("http://google.com",
+						c -> c.header("content-length", "1")
+								.failOnClientError(false)
+								.sendString(Flowable.just(" ")))
+				.blockingGet();
 
 		HttpClient.create(opts -> opts.poolResources(fixed))
-		          .get("http://google.com",
-				          c -> c.header("content-length", "1")
-				                .failOnClientError(false)
-				                .sendString(Mono.just(" ")))
-		          .block(Duration.ofSeconds(30));
+				.get("http://google.com",
+						c -> c.header("content-length", "1")
+								.failOnClientError(false)
+								.sendString(Flowable.just(" ")))
+				.blockingGet();
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.BAD_REQUEST);
 	}
@@ -423,84 +419,81 @@ public class HttpClientTest {
 	@Test
 	public void simpleTestHttps() {
 
-		StepVerifier.create(HttpClient.create()
-		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Mono.just(r.status().code()))
-		)
-		            .expectNextMatches(status -> status >= 200 && status < 400)
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("https://developer.chrome.com")
+				.flatMap(r -> Maybe.just(r.status().code()))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(status -> status >= 200 && status < 400)
+				.assertComplete();
 
-		StepVerifier.create(HttpClient.create()
-		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Mono.just(r.status().code()))
-		)
-		            .expectNextMatches(status -> status >= 200 && status < 400)
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("https://developer.chrome.com")
+				.flatMap(r -> Maybe.just(r.status().code()))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(status -> status >= 200 && status < 400)
+				.assertComplete();
 	}
 
 	@Test
 	public void prematureCancel() throws Exception {
-		DirectProcessor<Void> signal = DirectProcessor.create();
+		MaybeSubject<Void> signal = MaybeSubject.create();
 		NettyContext x = TcpServer.create("localhost", 0)
-		                          .newHandler((in, out) -> {
-										signal.onComplete();
-										return out.context(c -> c.addHandlerFirst(
-												new HttpResponseEncoder()))
-										          .sendObject(Mono.delay(Duration
-												          .ofSeconds(2))
-												          .map(t ->
-												          new DefaultFullHttpResponse(
-														          HttpVersion.HTTP_1_1,
-														          HttpResponseStatus
-																          .PROCESSING)))
-												.neverComplete();
-		                          })
-		                          .block(Duration.ofSeconds(30));
+				.newHandler((in, out) -> {
+					signal.onComplete();
+					return out.context(c -> c.addHandlerFirst(
+							new HttpResponseEncoder()))
+							.sendObject(Flowable.timer(2, TimeUnit.SECONDS)
+									.map(t ->
+											new DefaultFullHttpResponse(
+													HttpVersion.HTTP_1_1,
+													HttpResponseStatus
+															.PROCESSING)))
+							.neverComplete();
+				})
+				.blockingGet();
 
-		StepVerifier.create(HttpClient.create(x.address().getHostName(), x.address().getPort())
-		                              .get("/")
-		                              .timeout(signal)
-		)
-		            .verifyError(TimeoutException.class);
+		HttpClient.create(x.address().getHostName(), x.address().getPort())
+				.get("/")
+				.timeout(signal)
+				.test()
+				.assertError(TimeoutException.class);
 //		Thread.sleep(1000000);
 	}
 
 	@Test
 	public void gzip() {
 		//verify gzip is negotiated (when no decoder)
-		StepVerifier.create(
-				HttpClient.create()
-				          .get("http://www.httpwatch.com", req -> req
-						          .addHeader("Accept-Encoding", "gzip")
-						          .addHeader("Accept-Encoding", "deflate")
-				          )
-				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new).toFlowable()))
-		)
-		            .expectNextMatches(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
-				            && "gzip".equals(tuple.getValue()))
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("http://www.httpwatch.com", req -> req
+						.addHeader("Accept-Encoding", "gzip")
+						.addHeader("Accept-Encoding", "deflate")
+				)
+				.flatMap(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+						.zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+								SimpleImmutableEntry::new))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
+						&& "gzip".equals(tuple.getValue()))
+				.assertComplete();
 
 		//verify decoder does its job and removes the header
-		StepVerifier.create(
-				HttpClient.create()
-				          .get("http://www.httpwatch.com", req -> {
-					          req.context().addHandlerFirst("gzipDecompressor", new HttpContentDecompressor());
-					          return req.addHeader("Accept-Encoding", "gzip")
-					                    .addHeader("Accept-Encoding", "deflate");
-				          })
-				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new).toFlowable()))
-		)
-		            .expectNextMatches(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
-				            && "".equals(tuple.getValue()))
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("http://www.httpwatch.com", req -> {
+					req.context().addHandlerFirst("gzipDecompressor", new HttpContentDecompressor());
+					return req.addHeader("Accept-Encoding", "gzip")
+							.addHeader("Accept-Encoding", "deflate");
+				})
+				.flatMap(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+						.zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+								SimpleImmutableEntry::new))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
+						&& "".equals(tuple.getValue()))
+				.assertComplete();
 	}
 
 	@Test
@@ -516,37 +509,36 @@ public class HttpClientTest {
 	private void doTestGzip(boolean gzipEnabled) {
 		String expectedResponse = gzipEnabled ? "gzip" : "no gzip";
 		NettyContext server = HttpServer.create(0)
-		        .newHandler((req,res) -> res.sendString(
-		                Mono.just(req.requestHeaders().get(HttpHeaderNames.ACCEPT_ENCODING, "no gzip"))))
-		        .block(Duration.ofSeconds(30));
-		StepVerifier.create(
-		        HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
-		                  .get("/")
-		                  .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).toFlowable()))
-		        )
-		            .expectNextMatches(str -> expectedResponse.equals(str))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+				.newHandler((req,res) -> res.sendString(
+						Flowable.just(req.requestHeaders().get(HttpHeaderNames.ACCEPT_ENCODING, "no gzip"))))
+				.blockingGet();
+		HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
+				.get("/")
+				.flatMap(r -> r.receive().asString().elementAt(0))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(str -> expectedResponse.equals(str))
+				.assertComplete();
 	}
 
 	@Test
 	public void testUserAgent() {
 		NettyContext c = HttpServer.create(0)
-		                           .newHandler((req, resp) -> {
-			                           Assert.assertTrue(""+req.requestHeaders()
-			                                                   .get(HttpHeaderNames.USER_AGENT),
-					                           req.requestHeaders()
-			                                               .contains(HttpHeaderNames.USER_AGENT) && req.requestHeaders()
-			                                                                                           .get(HttpHeaderNames.USER_AGENT)
-			                                                                                           .equals(HttpClient.USER_AGENT));
+				.newHandler((req, resp) -> {
+					Assert.assertTrue(""+req.requestHeaders()
+									.get(HttpHeaderNames.USER_AGENT),
+							req.requestHeaders()
+									.contains(HttpHeaderNames.USER_AGENT) && req.requestHeaders()
+									.get(HttpHeaderNames.USER_AGENT)
+									.equals(HttpClient.USER_AGENT));
 
-			                           return resp;
-		                           })
-		                           .block();
+					return resp;
+				})
+				.blockingGet();
 
 		HttpClient.create(c.address().getPort())
-		          .get("/")
-		          .block();
+				.get("/")
+				.blockingGet();
 
 		c.dispose();
 	}
@@ -554,8 +546,8 @@ public class HttpClientTest {
 	@Test
 	public void toStringShowsOptions() {
 		HttpClient client = HttpClient.create(opt -> opt.host("foo")
-		                                                .port(123)
-		                                                .compression(true));
+				.port(123)
+				.compression(true));
 
 		assertThat(client.toString()).isEqualTo("HttpClient: connecting to foo:123 with gzip");
 	}
@@ -572,25 +564,25 @@ public class HttpClientTest {
 	public void sshExchangeRelativeGet() throws CertificateException, SSLException {
 		SelfSignedCertificate ssc = new SelfSignedCertificate();
 		SslContext sslServer = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey())
-		                                        .build();
+				.build();
 		SslContext sslClient = SslContextBuilder.forClient()
-		                                        //make the client to trust the self signed certificate
-		                                        .trustManager(ssc.cert())
-		                                        .build();
+				//make the client to trust the self signed certificate
+				.trustManager(ssc.cert())
+				.build();
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
-				          .newHandler((req, resp) -> resp.sendString(Flux.just("hello ", req.uri())))
-				          .block();
+						.newHandler((req, resp) -> resp.sendString(Flowable.just("hello ", req.uri())))
+						.blockingGet();
 
 
 		HttpClientResponse response = HttpClient.create(
 				opt -> opt.port(context.address().getPort())
-				          .sslContext(sslClient))
-		                                        .get("/foo")
-		                                        .block(Duration.ofMillis(200));
+						.sslContext(sslClient))
+				.get("/foo")
+				.blockingGet();
 		context.dispose();
-		context.onClose().block();
+		context.onClose().blockingAwait();
 
 		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
@@ -601,21 +593,21 @@ public class HttpClientTest {
 		SelfSignedCertificate ssc = new SelfSignedCertificate();
 		SslContext sslServer = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
 		SslContext sslClient = SslContextBuilder.forClient()
-		                                        .trustManager(ssc.cert()).build();
+				.trustManager(ssc.cert()).build();
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
-				          .newHandler((req, resp) -> resp.sendString(Flux.just("hello ", req.uri())))
-				          .block();
+						.newHandler((req, resp) -> resp.sendString(Flowable.just("hello ", req.uri())))
+						.blockingGet();
 
 		HttpClientResponse response = HttpClient.create(
 				opt -> opt.port(context.address().getPort())
-				          .sslContext(sslClient)
+						.sslContext(sslClient)
 		)
-		                                        .get("https://localhost:" + context.address().getPort() + "/foo")
-		                                        .block();
+				.get("https://localhost:" + context.address().getPort() + "/foo")
+				.blockingGet();
 		context.dispose();
-		context.onClose().block();
+		context.onClose().blockingAwait();
 
 		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
@@ -632,23 +624,23 @@ public class HttpClientTest {
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
-				          .newRouter(r -> r.post("/upload", (req, resp) ->
-						          req.receive()
-						             .aggregate()
-						             .asString(StandardCharsets.UTF_8)
-						             .doOnSuccess(uploaded::set)
-												 .ignoreElement()
-						             .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
-				          .block();
+						.newRouter(r -> r.post("/upload", (req, resp) ->
+								req.receive()
+										.aggregate()
+										.asString(StandardCharsets.UTF_8)
+										.doOnSuccess(uploaded::set)
+										.ignoreElement()
+										.andThen(resp.status(201).sendString(Flowable.just("Received File")).then())))
+						.blockingGet();
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort())
-				                            .sslContext(sslClient))
-				          .post("/upload", r -> r.sendFile(largeFile))
-				          .block(Duration.ofSeconds(120));
+						.sslContext(sslClient))
+						.post("/upload", r -> r.sendFile(largeFile))
+						.blockingGet();
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().blockingAwait();
 
 		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);
@@ -667,23 +659,23 @@ public class HttpClientTest {
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.host("localhost"))
-				          .newRouter(r -> r.post("/upload", (req, resp) ->
-						          req
-								          .receive()
-								          .aggregate()
-								          .asString(StandardCharsets.UTF_8)
-								          .doOnSuccess(uploaded::set)
-													.ignoreElement()
-								          .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
-				          .block();
+						.newRouter(r -> r.post("/upload", (req, resp) ->
+								req
+										.receive()
+										.aggregate()
+										.asString(StandardCharsets.UTF_8)
+										.doOnSuccess(uploaded::set)
+										.ignoreElement()
+										.andThen(resp.status(201).sendString(Flowable.just("Received File")).then())))
+						.blockingGet();
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
-				          .post("/upload", r -> r.sendFile(largeFile))
-				          .block(Duration.ofSeconds(120));
+						.post("/upload", r -> r.sendFile(largeFile))
+						.blockingGet();
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().blockingAwait();
 
 		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);
@@ -693,36 +685,5 @@ public class HttpClientTest {
 				.startsWith("This is an UTF-8 file that is larger than 1024 bytes. " + "It contains accents like é.")
 				.contains("1024 mark here -><- 1024 mark here")
 				.endsWith("End of File");
-	}
-
-	@Test
-	public void test() {
-		NettyContext context =
-				HttpServer.create(opt -> opt.host("localhost"))
-				          .newRouter(r -> r.put("/201", (req, res) -> res.addHeader("Content-Length", "0")
-				                                                         .status(HttpResponseStatus.CREATED)
-				                                                         .sendHeaders())
-				                           .put("/204", (req, res) -> res.status(HttpResponseStatus.NO_CONTENT)
-				                                                         .sendHeaders())
-				                           .get("/200", (req, res) -> res.addHeader("Content-Length", "0")
-				                                                         .sendHeaders()))
-				          .block(Duration.ofSeconds(30));
-
-		HttpClientResponse response1 =
-				HttpClient.create(opt -> opt.port(context.address().getPort()))
-				          .put("/201", req -> req.sendHeaders())
-				          .block();
-		//response1.dispose();
-
-		HttpClientResponse response2 =
-				HttpClient.create(opt -> opt.port(context.address().getPort()))
-				          .put("/204", req -> req.sendHeaders())
-				          .block(Duration.ofSeconds(30));
-
-		HttpClientResponse response3 =
-				HttpClient.create(opt -> opt.port(context.address().getPort()))
-				          .get("/200", req -> req.sendHeaders())
-				          .block(Duration.ofSeconds(30));
-		//response3.dispose();
 	}
 }

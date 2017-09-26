@@ -21,23 +21,21 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.reactivex.Flowable;
+import io.reactivex.Maybe;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.ipc.netty.http.server.HttpServer;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -47,23 +45,23 @@ public class ChannelOperationsHandlerTest {
 	public void publisherSenderOnCompleteFlushInProgress() {
 		NettyContext server =
 				HttpServer.create(0)
-				          .newHandler((req, res) ->
-				                  req.receive()
-				                     .asString()
-				                     .doOnNext(System.err::println)
-														 .ignoreElements()
-				                     .andThen(res.status(200).sendHeaders().then()))
-				          .block(Duration.ofSeconds(30));
+						.newHandler((req, res) ->
+								req.receive()
+										.asString()
+										.doOnNext(System.err::println)
+										.ignoreElements()
+										.andThen((res.status(200).sendHeaders().then())))
+						.blockingGet();
 
-		Flux<String> flux = Flux.range(1, 257).map(count -> count + "");
-		Mono<HttpClientResponse> client =
+		Flowable<String> flux = Flowable.range(1, 257).map(count -> count + "");
+		Maybe<HttpClientResponse> client =
 				HttpClient.create(server.address().getPort())
-				          .post("/", req -> req.sendString(flux));
+						.post("/", req -> req.sendString(flux));
 
-		StepVerifier.create(client)
-		            .expectNextMatches(res -> res.status().code() == 200)
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		client.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(res -> res.status().code() == 200)
+				.assertComplete();
 	}
 
 	@Test
@@ -81,13 +79,14 @@ public class ChannelOperationsHandlerTest {
 
 		EmbeddedChannel channel = new EmbeddedChannel(handler);
 		channel.config().setWriteBufferLowWaterMark(writeBufferLowWaterMark)
-		                .setWriteBufferHighWaterMark(writeBufferHighWaterMark);
+				.setWriteBufferHighWaterMark(writeBufferHighWaterMark);
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 
-		StepVerifier.create(FutureCompletable.deferFuture(() -> channel.writeAndFlush(Flux.range(0, 70))))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		FutureCompletable.deferFuture(() -> channel.writeAndFlush(Flowable.range(0, 70)))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertComplete();
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 	}
@@ -105,16 +104,16 @@ public class ChannelOperationsHandlerTest {
 			throw new IOException("Fail to start test server");
 		}
 
-		Mono<HttpClientResponse> response =
+		Maybe<HttpClientResponse> response =
 				HttpClient.create(ops -> ops.host("localhost")
-				                            .port(abortServerPort))
-				          .get("/",
-						          req -> req.sendHeaders()
-						                    .sendString(Flux.just("a", "b", "c")));
+						.port(abortServerPort))
+						.get("/",
+								req -> req.sendHeaders()
+										.sendString(Flowable.just("a", "b", "c")));
 
-		StepVerifier.create(response)
-		            .expectError()
-		            .verify();
+		response.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertError(t -> true);
 
 		abortServer.close();
 	}
@@ -142,7 +141,7 @@ public class ChannelOperationsHandlerTest {
 			try {
 				server.configureBlocking(true);
 				server.socket()
-				      .bind(new InetSocketAddress(port));
+						.bind(new InetSocketAddress(port));
 				countDown();
 				thread = Thread.currentThread();
 				while (true) {

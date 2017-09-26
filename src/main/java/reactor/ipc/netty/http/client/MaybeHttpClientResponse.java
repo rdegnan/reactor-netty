@@ -28,11 +28,11 @@ import io.reactivex.Completable;
 import io.reactivex.CompletableSource;
 import io.reactivex.Maybe;
 import io.reactivex.MaybeObserver;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
-import reactor.core.Exceptions;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.AbortedException;
@@ -58,7 +58,7 @@ final class MaybeHttpClientResponse extends Maybe<HttpClientResponse> {
 					method == HttpClient.WS));
 		}
 		catch (URISyntaxException e) {
-			throw Exceptions.bubble(e);
+			throw Exceptions.propagate(e);
 		}
 		this.method = method == HttpClient.WS ? HttpMethod.GET : method;
 		this.handler = handler;

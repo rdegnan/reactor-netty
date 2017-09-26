@@ -30,8 +30,7 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
-import org.reactivestreams.Publisher;
-import reactor.core.scheduler.Schedulers;
+import io.reactivex.schedulers.Schedulers;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.channel.ChannelOperations;
@@ -178,7 +177,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 
 	static final int DEFAULT_UDP_THREAD_COUNT = Integer.parseInt(System.getProperty(
 			"reactor.udp.ioThreadCount",
-			"" + Schedulers.DEFAULT_POOL_SIZE));
+			"" + Math.max(Runtime.getRuntime().availableProcessors(), 4)));
 
 	static final LoggingHandler loggingHandler = new LoggingHandler(UdpClient.class);
 

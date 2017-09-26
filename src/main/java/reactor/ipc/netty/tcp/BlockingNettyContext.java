@@ -22,11 +22,10 @@ import java.util.concurrent.TimeoutException;
 
 import io.reactivex.Completable;
 import io.reactivex.Maybe;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 
 /**
- * Wrap a {@link NettyContext} obtained from a {@link Mono} and offer methods to manage
+ * Wrap a {@link NettyContext} obtained from a {@link Maybe} and offer methods to manage
  * its lifecycle in a blocking fashion.
  *
  * @author Simon Baslé

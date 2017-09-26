@@ -25,9 +25,8 @@ import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.json.JsonObjectDecoder;
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.Future;
+import io.reactivex.Completable;
 import org.junit.Test;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -59,8 +58,8 @@ public class HttpClientOperationsTest {
 		}
 
 		@Override
-		protected Publisher<Void> onCloseOrRelease(Channel channel) {
-			return Mono.never();
+		protected Completable onCloseOrRelease(Channel channel) {
+			return Completable.never();
 		}
 
 		@Override

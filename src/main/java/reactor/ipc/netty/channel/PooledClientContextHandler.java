@@ -18,6 +18,8 @@ package reactor.ipc.netty.channel;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
@@ -32,10 +34,6 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.subjects.CompletableSubject;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.ClientOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 /**
  * @param <CHANNEL> the channel type
@@ -45,8 +43,6 @@ import reactor.util.function.Tuples;
 final class PooledClientContextHandler<CHANNEL extends Channel>
 		extends ContextHandler<CHANNEL>
 		implements GenericFutureListener<Future<CHANNEL>> {
-
-	static final Logger log = Loggers.getLogger(PooledClientContextHandler.class);
 
 	final ClientOptions      clientOptions;
 	final boolean            secure;
@@ -99,10 +95,6 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 			f = this.future;
 
 			if (f == DISPOSED) {
-				if (log.isDebugEnabled()) {
-					log.debug("Cancelled existing channel from pool: {}",
-							pool.toString());
-				}
 				sink.onComplete();
 				return;
 			}
@@ -110,11 +102,6 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 			if (FUTURE.compareAndSet(this, f, future)) {
 				break;
 			}
-		}
-		if (log.isDebugEnabled()) {
-			log.debug("Acquiring existing channel from pool: {} {}",
-					future,
-					pool.toString());
 		}
 		((Future<CHANNEL>) future).addListener(this);
 	}
@@ -128,18 +115,10 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	@Override
 	public void operationComplete(Future<CHANNEL> future) throws Exception {
 		if (future.isCancelled()) {
-			if (log.isDebugEnabled()) {
-				log.debug("Cancelled {}", future.toString());
-			}
 			return;
 		}
 
 		if (DISPOSED == this.future) {
-			if (log.isDebugEnabled()) {
-				log.debug("Dropping acquisition {} because of {}",
-						future,
-						"asynchronous user cancellation");
-			}
 			if (future.isSuccess()) {
 				disposeOperationThenRelease(future.get());
 			}
@@ -177,10 +156,6 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	@SuppressWarnings("unchecked")
 	final void connectOrAcquire(CHANNEL c) {
 		if (DISPOSED == this.future) {
-			if (log.isDebugEnabled()) {
-				log.debug("Dropping acquisition {} because of {}",
-						"asynchronous user cancellation");
-			}
 			disposeOperationThenRelease(c);
 			sink.onComplete();
 			return;
@@ -190,22 +165,14 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 		                               .get(ChannelOperationsHandler.class);
 
 		if (op == null) {
-			if (log.isDebugEnabled()) {
-				log.debug("Created new pooled channel: " + c.toString());
-			}
 			c.closeFuture()
 			 .addListener(ff -> release(c));
 			return;
 		}
 		if (!c.isActive()) {
-			log.debug("Immediately aborted pooled channel, re-acquiring new " + "channel: {}",
-					c.toString());
 			release(c);
 			setFuture(pool.acquire());
 			return;
-		}
-		if (log.isDebugEnabled()) {
-			log.debug("Acquired active channel: " + c.toString());
 		}
 		if (createOperations(c, null) == null) {
 			setFuture(pool.acquire());
@@ -238,7 +205,6 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 
 		}
 		catch (Exception e) {
-			log.error("Failed releasing channel", e);
 			onReleaseEmitter.onError(e);
 		}
 	}
@@ -255,10 +221,6 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	}
 
 	final void release(CHANNEL c) {
-		if (log.isDebugEnabled()) {
-			log.debug("Releasing channel: {}", c.toString());
-		}
-
 		if (!NettyContext.isPersistent(c) && c.isActive()) {
 			c.close();
 		}
@@ -287,10 +249,10 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	}
 
 	@Override
-	protected Tuple2<String, Integer> getSNI() {
+	protected Entry<String, Integer> getSNI() {
 		if (providedAddress instanceof InetSocketAddress) {
 			InetSocketAddress ipa = (InetSocketAddress) providedAddress;
-			return Tuples.of(ipa.getHostName(), ipa.getPort());
+			return new SimpleImmutableEntry<>(ipa.getHostName(), ipa.getPort());
 		}
 		return null;
 	}

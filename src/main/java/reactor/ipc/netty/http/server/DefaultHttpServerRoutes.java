@@ -26,10 +26,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import io.reactivex.Completable;
 import io.reactivex.CompletableSource;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
-import reactor.core.Exceptions;
 
 /**
  * @author Stephane Maldini

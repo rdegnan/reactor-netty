@@ -17,16 +17,16 @@ package reactor.ipc.netty.tcp;
 
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
+import io.reactivex.Completable;
+import io.reactivex.functions.Consumer;
 import org.junit.Before;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -52,8 +52,8 @@ public class TcpResourcesTest {
 			}
 
 			@Override
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> loopDisposed.set(true));
+			public Completable disposeLater() {
+				return Completable.complete().doOnComplete(() -> loopDisposed.set(true));
 			}
 
 			@Override
@@ -65,13 +65,13 @@ public class TcpResourcesTest {
 		poolResources = new PoolResources() {
 			@Override
 			public ChannelPool selectOrCreate(SocketAddress address,
-					Supplier<? extends Bootstrap> bootstrap,
-					Consumer<? super Channel> onChannelCreate, EventLoopGroup group) {
+																				Supplier<? extends Bootstrap> bootstrap,
+																				Consumer<? super Channel> onChannelCreate, EventLoopGroup group) {
 				return null;
 			}
 
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> poolDisposed.set(true));
+			public Completable disposeLater() {
+				return Completable.complete().doOnComplete(() -> poolDisposed.set(true));
 			}
 
 			@Override
@@ -91,7 +91,7 @@ public class TcpResourcesTest {
 		assertThat(tcpResources.isDisposed()).isFalse();
 
 		tcpResources.disposeLater()
-		            .doOnSuccess(c -> assertThat(tcpResources.isDisposed()).isTrue())
+		            .doOnComplete(() -> assertThat(tcpResources.isDisposed()).isTrue())
 		            .subscribe();
 		//not immediately disposed when subscribing
 		assertThat(tcpResources.isDisposed()).as("immediate status on disposeLater subscribe").isFalse();
@@ -108,7 +108,7 @@ public class TcpResourcesTest {
 			TcpResources.shutdownLater();
 			assertThat(newTcpResources.isDisposed()).isFalse();
 
-			TcpResources.shutdownLater().block();
+			TcpResources.shutdownLater().blockingAwait();
 			assertThat(newTcpResources.isDisposed()).as("shutdownLater completion").isTrue();
 
 			assertThat(TcpResources.tcpResources.get()).isNull();

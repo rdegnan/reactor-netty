@@ -15,19 +15,19 @@
  */
 package reactor.ipc.netty.http
 
+import io.reactivex.Completable
+import io.reactivex.Flowable
+import io.reactivex.Maybe
+import io.reactivex.functions.Function
 import io.reactivex.schedulers.Schedulers
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import reactor.ipc.netty.http.client.HttpClient
 import reactor.ipc.netty.http.client.HttpClientException
 import reactor.ipc.netty.http.server.HttpServer
 import spock.lang.Specification
 
-import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.function.Function
 
 /**
  * @author Stephane Maldini
@@ -41,9 +41,9 @@ class HttpSpec extends Specification {
 	//prepare post request consumer on /test/* and capture the URL parameter "param"
 	def server = HttpServer.create(0).newRouter { r ->
 	  r.post('/test/{param}') {
-		req, res -> Mono.empty()
+		req, res -> Completable.complete()
 	  }
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet()
 
 	//Prepare a client using default impl (Netty) to connect on http://localhost:port/ and assign global codec to send/receive String data
 	def client = HttpClient.create("localhost", server.address().port)
@@ -54,13 +54,13 @@ class HttpSpec extends Specification {
 	  req.header('Content-Type', 'text/plain')
 
 	  //return a producing stream to send some data along the request
-	  req.sendString(Mono.just("Hello"))
+	  req.sendString(Flowable.just("Hello"))
 
 	}.flatMap({
 	  replies
 		->
 		//successful request, listen for the first returned next reply and pass it downstream
-		Mono.from(replies.receive())
+		replies.receive().firstElement()
 	} as Function)
 			.doOnError {
 	  //something failed during the request or the reply processing
@@ -69,7 +69,7 @@ class HttpSpec extends Specification {
 
 	then: "data was not recieved"
 	//the produced reply should be there soon
-	!content.block(Duration.ofSeconds(5000))
+	!content.blockingGet()
 
 	cleanup:
 	server.dispose()
@@ -92,7 +92,7 @@ class HttpSpec extends Specification {
 				  .map { it + ' ' + req.param('param') + '!' })
 
 	  }
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet()
 
 	//Prepare a client using default impl (Netty) to connect on http://localhost:port/ and assign global codec to send/receive String data
 	def client = HttpClient.create("localhost", server.address().port)
@@ -103,14 +103,13 @@ class HttpSpec extends Specification {
 	  req.header('Content-Type', 'text/plain')
 
 	  //return a producing stream to send some data along the request
-	  req.sendString(Flux.just("Hello"))
+	  req.sendString(Flowable.just("Hello"))
 
 	}.flatMap( { replies ->
 		//successful request, listen for the first returned next reply and pass it downstream
-		Mono.from(replies.receive()
+		replies.receive()
 				.aggregate()
 				.asString()
-				.toFlowable())
 	} as Function)
 			.doOnError {
 	  //something failed during the request or the reply processing
@@ -121,7 +120,7 @@ class HttpSpec extends Specification {
 
 	then: "data was recieved"
 	//the produced reply should be there soon
-	content.block(Duration.ofSeconds(5000)) == "Hello World!"
+	content.blockingGet() == "Hello World!"
 
 	cleanup: "the client/server where stopped"
 	//note how we order first the client then the server shutdown
@@ -139,16 +138,16 @@ class HttpSpec extends Specification {
 			   throw new Exception()
 			  }
 			  .get('/test2') { req, res ->
-				 res.send(Flux.error(new Exception()))
+				 res.send(Flowable.error(new Exception()))
 				    .then()
 					.doOnError {
 		  				errored.countDown()
 			 		}
 			  }
 	  		  .get('/test3') { req, res ->
-			  	 Flux.error(new Exception())
+			  	 Completable.error(new Exception())
 			  }
-	}.block(Duration.ofSeconds(30))
+	}.blockingGet()
 
 	def client = HttpClient.create("localhost", server.address().port)
 
@@ -163,9 +162,9 @@ class HttpSpec extends Specification {
 	client
 			.get('/test')
 			.flatMap({ replies ->
-	  Mono.just(replies.status().code())
+	  Maybe.just(replies.status().code())
 	} as Function)
-			.block(Duration.ofSeconds(30))
+			.blockingGet()
 
 
 
@@ -177,9 +176,9 @@ class HttpSpec extends Specification {
 	//prepare an http post request-reply flow
 	def content = client
 			.get('/test2')
-			.flatMapMany { replies -> replies.receive() }
-			.next()
-			.block(Duration.ofSeconds(30))
+			.flatMapPublisher() { replies -> replies.receive() }
+			.firstElement()
+			.blockingGet()
 
 	then: "data was recieved"
 	//the produced reply should be there soon
@@ -190,11 +189,11 @@ class HttpSpec extends Specification {
 	//prepare an http post request-reply flow
 	client
 			.get('/test3')
-			.flatMapMany { replies ->
-	  Flux.just(replies.status().code())
+			.flatMapPublisher() { replies ->
+	  Flowable.just(replies.status().code())
 	}
-	.next()
-			.block(Duration.ofSeconds(5))
+	.firstElement()
+			.blockingGet()
 
 	then: "data was recieved"
 	//the produced reply should be there soon
@@ -233,7 +232,7 @@ class HttpSpec extends Specification {
 						.map { it + ' ' + req.param('param') + '!' })
 				  }
 	  }
-	}.block(Duration.ofSeconds(5))
+	}.blockingGet()
 
 	//Prepare a client using default impl (Netty) to connect on http://localhost:port/ and assign global codec to send/receive String data
 	def client = HttpClient.create("localhost", server.address().port)
@@ -246,10 +245,10 @@ class HttpSpec extends Specification {
 	  //return a producing stream to send some data along the request
 	  req.options { o -> o.flushOnEach() }
 			  .sendWebsocket()
-			  .sendString(Flux
+			  .sendString(Flowable
 				.range(1, 1000)
 				.map { it.toString() })
-	}.flatMapMany {
+	}.flatMapPublisher() {
 	  replies
 		->
 		//successful handshake, listen for the first returned next replies and pass it downstream
@@ -260,7 +259,7 @@ class HttpSpec extends Specification {
 				.doOnNext { clientRes.incrementAndGet() }
 	}
 	.take(1000)
-			.collectList()
+			.toList()
 			.cache()
 			.doOnError {
 	  //something failed during the request or the reply processing
@@ -273,7 +272,7 @@ class HttpSpec extends Specification {
 	then: "data was recieved"
 	//the produced reply should be there soon
 	//content.block(Duration.ofSeconds(15))[1000 - 1] == "1000 World!"
-	content.block(Duration.ofSeconds(30))[1000 - 1] == "1000 World!"
+	content.blockingGet()[1000 - 1] == "1000 World!"
 
 	cleanup: "the client/server where stopped"
 	println "FINISHED: server[$serverRes] / client[$clientRes]"

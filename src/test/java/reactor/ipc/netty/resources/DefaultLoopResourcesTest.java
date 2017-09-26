@@ -15,11 +15,8 @@
  */
 package reactor.ipc.netty.resources;
 
-import java.time.Duration;
-
+import io.reactivex.Completable;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,7 +27,7 @@ public class DefaultLoopResourcesTest {
 		DefaultLoopResources loopResources = new DefaultLoopResources(
 				"test", 0, false);
 
-		Mono<Void> disposer = loopResources.disposeLater();
+		Completable disposer = loopResources.disposeLater();
 		assertThat(loopResources.isDisposed()).isFalse();
 
 		disposer.subscribe();
@@ -44,15 +41,15 @@ public class DefaultLoopResourcesTest {
 
 		assertThat(loopResources.isDisposed()).isFalse();
 
-		Duration firstInvocation = StepVerifier.create(loopResources.disposeLater())
-		                                       .verifyComplete();
+		loopResources.disposeLater()
+				.test()
+				.assertComplete();
 		assertThat(loopResources.isDisposed()).isTrue();
 		assertThat(loopResources.serverLoops.isTerminated()).isTrue();
 
-		Duration secondInvocation = StepVerifier.create(loopResources.disposeLater())
-		                                        .verifyComplete();
-
-		assertThat(secondInvocation).isLessThan(firstInvocation);
+		loopResources.disposeLater()
+				.test()
+				.assertComplete();
 	}
 
 }

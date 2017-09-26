@@ -26,8 +26,6 @@ import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.http.HttpInfos;
@@ -87,9 +85,9 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	}
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
 	default Flowable<HttpContent> receiveContent(){
 		return receiveObject().ofType(HttpContent.class);
@@ -107,11 +105,11 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
 	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * otherwise the returned {@link Completable} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Completable} completing when upgrade is confirmed
 	 */
 	default Completable receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		return receiveWebsocket(null, websocketHandler);
@@ -120,12 +118,12 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
 	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * otherwise the returned {@link Completable} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Completable} completing when upgrade is confirmed
 	 */
 	Completable receiveWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler);
