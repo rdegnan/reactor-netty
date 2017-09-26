@@ -16,20 +16,22 @@
 
 package reactor.ipc.netty;
 
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
-import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.tcp.BlockingNettyContext;
 
 /**
  * A Netty connector is an inbound/outbound factory sharing configuration but usually no
  * runtime
  * (connection...) state at the exception of shared connection pool setups. Subscribing
- * to the returned {@link Mono} will effectively
+ * to the returned {@link Maybe} will effectively
  * create a new stateful "client" or "server" socket depending on the implementation.
  * It might also be working on top of a socket pool or connection pool as well, but the
  * state should be safely handled by the pool itself.
@@ -37,12 +39,12 @@ import reactor.ipc.netty.tcp.BlockingNettyContext;
  * <p>Clients or Receivers will onSubscribe when their connection is established. They
  * will complete when the unique returned closing {@link Publisher} completes itself or if
  * the connection is remotely terminated. Calling the returned {@link
- * Disposable#dispose()} from {@link Mono#subscribe()} will terminate the subscription
+ * Disposable#dispose()} from {@link Maybe#subscribe()} will terminate the subscription
  * and underlying connection from the local peer.
  * <p>
  * <p>Servers or Producers will onSubscribe when their socket is bound locally. They will
  * never complete as many {@link Publisher} close selectors will be expected. Disposing
- * the returned {@link Mono} will safely call shutdown.
+ * the returned {@link Maybe} will safely call shutdown.
  *
  * @param <INBOUND> incoming traffic API such as server request or client response
  * @param <OUTBOUND> outgoing traffic API such as server response or client request
@@ -56,7 +58,7 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 	 * Prepare a {@link BiFunction} IO handler that will react on a new connected state
 	 * each
 	 * time
-	 * the returned  {@link Mono} is subscribed. This {@link NettyConnector} shouldn't assume
+	 * the returned  {@link Maybe} is subscribed. This {@link NettyConnector} shouldn't assume
 	 * any state related to the individual created/cleaned resources.
 	 * <p>
 	 * The IO handler will return {@link Publisher} to signal when to terminate the
@@ -64,11 +66,11 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 	 *
 	 * @param ioHandler the in/out callback returning a closing publisher
 	 *
-	 * @return a {@link Mono} completing with a {@link Disposable} token to dispose
+	 * @return a {@link Maybe} completing with a {@link Disposable} token to dispose
 	 * the active handler (server, client connection...) or failing with the connection
 	 * error.
 	 */
-	Mono<? extends NettyContext> newHandler(BiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>> ioHandler);
+	Maybe<? extends NettyContext> newHandler(BiFunction<? super INBOUND, ? super OUTBOUND, ? extends CompletableSource> ioHandler);
 
 	/**
 	 * Start a Client or Server in a blocking fashion, and wait for it to finish initializing.
@@ -79,7 +81,7 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 	 * @param <T>
 	 * @return a {@link BlockingNettyContext}
 	 */
-	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends Publisher<Void>>>
+	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends CompletableSource>>
 	BlockingNettyContext start(T handler) {
 		return new BlockingNettyContext(newHandler(handler), getClass().getSimpleName());
 	}
@@ -96,7 +98,7 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 	 *
 	 * @param handler the handler to execute.
 	 */
-	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends Publisher<Void>>>
+	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends CompletableSource>>
 	void startAndAwait(T handler) {
 		startAndAwait(handler, null);
 	}
@@ -115,18 +117,22 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 	 * @param onStart an optional callback to be invoked once the client/server has finished
 	 * initializing.
 	 */
-	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends Publisher<Void>>>
+	default <T extends BiFunction<INBOUND, OUTBOUND, ? extends CompletableSource>>
 	void startAndAwait(T handler, @Nullable Consumer<BlockingNettyContext> onStart) {
 		BlockingNettyContext facade = new BlockingNettyContext(newHandler(handler), getClass().getSimpleName());
 
 		facade.installShutdownHook();
 
 		if (onStart != null) {
-			onStart.accept(facade);
+			try {
+				onStart.accept(facade);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 
 		facade.getContext()
 		      .onClose()
-		      .block();
+		      .blockingAwait();
 	}
 }

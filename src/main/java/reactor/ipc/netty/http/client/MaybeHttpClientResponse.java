@@ -18,20 +18,21 @@ package reactor.ipc.netty.http.client;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.AsciiString;
-import org.reactivestreams.Publisher;
-import reactor.core.CoreSubscriber;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeObserver;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.AbortedException;
@@ -39,18 +40,18 @@ import reactor.ipc.netty.channel.AbortedException;
 /**
  * @author Stephane Maldini
  */
-final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
+final class MaybeHttpClientResponse extends Maybe<HttpClientResponse> {
 
 	final HttpClient                                                     parent;
 	final URI                                                            startURI;
 	final HttpMethod                                                     method;
-	final Function<? super HttpClientRequest, ? extends Publisher<Void>> handler;
+	final Function<? super HttpClientRequest, ? extends CompletableSource> handler;
 
 	static final AsciiString ALL = new AsciiString("*/*");
 
-	MonoHttpClientResponse(HttpClient parent, String url,
-			HttpMethod method,
-			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
+	MaybeHttpClientResponse(HttpClient parent, String url,
+													HttpMethod method,
+													Function<? super HttpClientRequest, ? extends CompletableSource> handler) {
 		this.parent = parent;
 		try {
 			this.startURI = new URI(parent.options.formatSchemeAndHost(url,
@@ -65,33 +66,32 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
-	public void subscribe(final CoreSubscriber<? super HttpClientResponse> subscriber) {
+	protected void subscribeActual(MaybeObserver<? super HttpClientResponse> subscriber) {
 		ReconnectableBridge bridge = new ReconnectableBridge();
 		bridge.activeURI = startURI;
 
-		Mono.defer(() -> parent.client.newHandler(new HttpClientHandler(this, bridge),
+		Maybe.defer(() -> parent.client.newHandler(new HttpClientHandler(this, bridge),
 				parent.options.getRemoteAddress(bridge.activeURI),
 				HttpClientOptions.isSecure(bridge.activeURI),
 				bridge))
-		    .retry(bridge)
-		    .cast(HttpClientResponse.class)
-		    .subscribe(subscriber);
+				.retry(bridge)
+				.cast(HttpClientResponse.class)
+				.subscribe(subscriber);
 	}
 
 	static final class HttpClientHandler
-			implements BiFunction<NettyInbound, NettyOutbound, Publisher<Void>> {
+			implements BiFunction<NettyInbound, NettyOutbound, CompletableSource> {
 
-		final MonoHttpClientResponse parent;
+		final MaybeHttpClientResponse parent;
 		final ReconnectableBridge    bridge;
 
-		HttpClientHandler(MonoHttpClientResponse parent, ReconnectableBridge bridge) {
+		HttpClientHandler(MaybeHttpClientResponse parent, ReconnectableBridge bridge) {
 			this.bridge = bridge;
 			this.parent = parent;
 		}
 
 		@Override
-		public Publisher<Void> apply(NettyInbound in, NettyOutbound out) {
+		public CompletableSource apply(NettyInbound in, NettyOutbound out) {
 			try {
 				URI uri = bridge.activeURI;
 				HttpClientOperations ch = (HttpClientOperations) in;
@@ -123,7 +123,7 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 				}
 			}
 			catch (Throwable t) {
-				return Mono.error(t);
+				return Completable.error(t);
 			}
 		}
 

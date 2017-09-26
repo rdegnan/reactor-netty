@@ -17,7 +17,6 @@
 package reactor.ipc.netty.resources;
 
 import java.net.SocketAddress;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
@@ -26,8 +25,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
+import io.reactivex.Completable;
+import io.reactivex.functions.Consumer;
 import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
 
 /**
  * A {@link io.netty.channel.pool.ChannelPool} selector with associated factories.
@@ -169,7 +169,7 @@ public interface PoolResources extends Disposable {
 	 *
 	 * @return a Mono representing the completion of resources disposal.
 	 **/
-	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+	default Completable disposeLater() {
+		return Completable.complete(); //noop default
 	}
 }

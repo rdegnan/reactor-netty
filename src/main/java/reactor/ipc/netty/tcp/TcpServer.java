@@ -18,17 +18,18 @@ package reactor.ipc.netty.tcp;
 
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -138,7 +139,11 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 			                    .port(builder.port);
 		}
 		else {
-			builder.options.accept(serverOptionsBuilder);
+			try {
+				builder.options.accept(serverOptionsBuilder);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 		if (!serverOptionsBuilder.isLoopAvailable()) {
 			serverOptionsBuilder.loopResources(TcpResources.get());
@@ -154,9 +159,9 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	@Override
-	public final Mono<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
+	public final Maybe<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler) {
 		Objects.requireNonNull(handler, "handler");
-		return Mono.create(sink -> {
+		return Maybe.create(sink -> {
 			ServerBootstrap b = options.get();
 			SocketAddress local = options.getAddress();
 			b.localAddress(local);
@@ -200,8 +205,8 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	 * @return a new {@link ContextHandler}
 	 */
 	protected ContextHandler<Channel> doHandler(
-			BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink) {
+			BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler,
+			MaybeEmitter<NettyContext> sink) {
 		return ContextHandler.newServerContext(sink,
 				options,
 				loggingHandler(),

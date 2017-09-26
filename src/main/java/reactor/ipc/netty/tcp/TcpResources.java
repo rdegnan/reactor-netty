@@ -18,8 +18,6 @@ package reactor.ipc.netty.tcp;
 
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
@@ -28,7 +26,10 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.DatagramChannel;
-import reactor.core.publisher.Mono;
+import io.reactivex.Completable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -91,17 +92,17 @@ public class TcpResources implements PoolResources, LoopResources {
 	/**
 	 * Prepare to shutdown the global {@link TcpResources} without resetting them,
 	 * effectively cleaning up associated resources without creating new ones. This only
-	 * occurs when the returned {@link Mono} is subscribed to.
+	 * occurs when the returned {@link Completable} is subscribed to.
 	 *
-	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
+	 * @return a {@link Completable} triggering the {@link #shutdown()} when subscribed to.
 	 */
-	public static Mono<Void> shutdownLater() {
-		return Mono.defer(() -> {
+	public static Completable shutdownLater() {
+		return Completable.defer(() -> {
 			TcpResources resources = tcpResources.getAndSet(null);
 			if (resources != null) {
 				return resources._disposeLater();
 			}
-			return Mono.empty();
+			return Completable.complete();
 		});
 	}
 
@@ -119,8 +120,8 @@ public class TcpResources implements PoolResources, LoopResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.empty(); //noop on global by default
+	public Completable disposeLater() {
+		return Completable.complete(); //noop on global by default
 	}
 
 	/**
@@ -136,11 +137,11 @@ public class TcpResources implements PoolResources, LoopResources {
 	 * Dispose underlying resources in a listenable fashion.
 	 * @return the Mono that represents the end of disposal
 	 */
-	protected Mono<Void> _disposeLater() {
-		return Mono.zip(
+	protected Completable _disposeLater() {
+		return Completable.mergeArray(
 				defaultLoops.disposeLater(),
-				defaultPools.disposeLater())
-		           .then();
+				defaultPools.disposeLater()
+		);
 	}
 
 	@Override
@@ -261,6 +262,10 @@ public class TcpResources implements PoolResources, LoopResources {
 			loops = loops == null ? previous.defaultLoops : loops;
 			pools = pools == null ? previous.defaultPools : pools;
 		}
-		return onNew.apply(loops, pools);
+		try {
+			return onNew.apply(loops, pools);
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 	}
 }

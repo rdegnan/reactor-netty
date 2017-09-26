@@ -17,12 +17,12 @@
 package reactor.ipc.netty.http.server;
 
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
-import reactor.core.publisher.Flux;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -73,11 +73,11 @@ public interface HttpServerRequest extends NettyInbound, HttpInfos {
 	HttpServerRequest paramsResolver(Function<? super String, Map<String, String>> headerResolver);
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
-	default Flux<HttpContent> receiveContent() {
+	default Flowable<HttpContent> receiveContent() {
 		return receiveObject().ofType(HttpContent.class);
 	}
 

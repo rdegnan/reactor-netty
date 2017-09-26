@@ -25,9 +25,9 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.MonoSink;
-import reactor.ipc.netty.FutureMono;
+import io.reactivex.Completable;
+import io.reactivex.MaybeEmitter;
+import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.util.Logger;
@@ -47,15 +47,15 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 
 	CloseableContextHandler(ChannelOperations.OnNew<CHANNEL> channelOpFactory,
 			NettyOptions<?, ?> options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			SocketAddress providedAddress) {
 		super(channelOpFactory, options, sink, loggingHandler, providedAddress);
 	}
 
 	@Override
-	protected Publisher<Void> onCloseOrRelease(Channel channel) {
-		return FutureMono.from(channel.closeFuture());
+	protected Completable onCloseOrRelease(Channel channel) {
+		return FutureCompletable.from(channel.closeFuture());
 	}
 
 	@Override
@@ -66,10 +66,10 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 				return;
 			}
 			if (f.cause() != null) {
-				sink.error(f.cause());
+				sink.onError(f.cause());
 			}
 			else {
-				sink.error(new IOException("error while connecting to " + f.channel()
+				sink.onError(new IOException("error while connecting to " + f.channel()
 				                                                           .toString()));
 			}
 		}

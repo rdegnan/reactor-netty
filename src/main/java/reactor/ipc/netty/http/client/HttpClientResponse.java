@@ -16,12 +16,15 @@
 
 package reactor.ipc.netty.http.client;
 
-import java.util.function.BiFunction;
-
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -75,7 +78,7 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	HttpClientResponse replaceHandler(String name, ChannelHandler handler);
 
 	@Override
-	HttpClientResponse onClose(Runnable onClose);
+	HttpClientResponse onClose(Action onClose);
 
 	@Override
 	default HttpClientResponse onReadIdle(long idleTimeout, Runnable onReadIdle) {
@@ -88,7 +91,7 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	 *
 	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
 	 */
-	default Flux<HttpContent> receiveContent(){
+	default Flowable<HttpContent> receiveContent(){
 		return receiveObject().ofType(HttpContent.class);
 	}
 
@@ -110,7 +113,7 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	 *
 	 * @return a {@link Mono} completing when upgrade is confirmed
 	 */
-	default Mono<Void> receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Completable receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		return receiveWebsocket(null, websocketHandler);
 	}
 
@@ -124,8 +127,8 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	 *
 	 * @return a {@link Mono} completing when upgrade is confirmed
 	 */
-	Mono<Void> receiveWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
+	Completable receiveWebsocket(String protocols,
+			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler);
 
 	/**
 	 * Return the previous redirections or empty array

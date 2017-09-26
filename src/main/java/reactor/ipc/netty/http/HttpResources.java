@@ -17,8 +17,9 @@
 package reactor.ipc.netty.http;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 
+import io.reactivex.Completable;
+import io.reactivex.functions.BiFunction;
 import reactor.core.publisher.Mono;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
@@ -87,13 +88,13 @@ public final class HttpResources extends TcpResources {
 	 *
 	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
 	 */
-	public static Mono<Void> shutdownLater() {
-		return Mono.defer(() -> {
+	public static Completable shutdownLater() {
+		return Completable.defer(() -> {
 			HttpResources resources = httpResources.getAndSet(null);
 			if (resources != null) {
 				return resources._disposeLater();
 			}
-			return Mono.empty();
+			return Completable.complete();
 		});
 	}
 

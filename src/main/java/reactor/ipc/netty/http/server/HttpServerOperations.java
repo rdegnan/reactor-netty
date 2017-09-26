@@ -22,9 +22,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -48,10 +45,14 @@ import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -74,7 +75,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@SuppressWarnings("unchecked")
 	static HttpServerOperations bindHttp(Channel channel,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler,
 			ContextHandler<?> context,
 			Object msg) {
 		return new HttpServerOperations(channel, handler, context, (HttpRequest) msg);
@@ -97,7 +98,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	HttpServerOperations(Channel ch,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler,
 			ContextHandler<?> context,
 			HttpRequest nettyRequest) {
 		super(ch, handler, context);
@@ -112,7 +113,11 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@Override
 	public HttpServerOperations context(Consumer<NettyContext> contextCallback) {
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return this;
 	}
 
@@ -218,14 +223,25 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		Objects.requireNonNull(key, "key");
 		Map<String, String> params = null;
 		if (paramsResolver != null) {
-			params = this.paramsResolver.apply(uri());
+			try {
+				params = this.paramsResolver.apply(uri());
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 		return null != params ? params.get(key) : null;
 	}
 
 	@Override
 	public Map<String, String> params() {
-		return null != paramsResolver ? paramsResolver.apply(uri()) : null;
+		if (paramsResolver != null) {
+			try {
+				return this.paramsResolver.apply(uri());
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
+		}
+		return null;
 	}
 
 	@Override
@@ -235,15 +251,15 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Flux<?> receiveObject() {
+	public Flowable<?> receiveObject() {
 		// Handle the 'Expect: 100-continue' header if necessary.
 		// TODO: Respond with 413 Request Entity Too Large
 		//   and discard the traffic or close the connection.
 		//       No need to notify the upstream handlers - just log.
 		//       If decoding a response, just throw an error.
 		if (HttpUtil.is100ContinueExpected(nettyRequest)) {
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(CONTINUE))
-			                 .thenMany(super.receiveObject());
+			return FutureCompletable.deferFuture(() -> channel().writeAndFlush(CONTINUE))
+			                 .andThen(super.receiveObject());
 		}
 		else {
 			return super.receiveObject();
@@ -264,13 +280,13 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> send() {
+	public Completable send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage response = newFullEmptyBodyMessage();
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(response));
+			return FutureCompletable.deferFuture(() -> channel().writeAndFlush(response));
 		}
 		else {
-			return Mono.empty();
+			return Completable.complete();
 		}
 	}
 
@@ -288,13 +304,13 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> sendNotFound() {
+	public Completable sendNotFound() {
 		return this.status(HttpResponseStatus.NOT_FOUND)
 		           .send();
 	}
 
 	@Override
-	public Mono<Void> sendRedirect(String location) {
+	public Completable sendRedirect(String location) {
 		Objects.requireNonNull(location, "location");
 		return this.status(HttpResponseStatus.FOUND)
 		           .header(HttpHeaderNames.LOCATION, location)
@@ -328,8 +344,8 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> sendWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	public Completable sendWebsocket(String protocols,
+			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		return withWebsocketSupport(uri(), protocols, websocketHandler);
 	}
 
@@ -447,23 +463,23 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		return nettyResponse;
 	}
 
-	final Mono<Void> withWebsocketSupport(String url,
+	final Completable withWebsocketSupport(String url,
 			String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		Objects.requireNonNull(websocketHandler, "websocketHandler");
 		if (markSentHeaders()) {
 			HttpServerWSOperations ops = new HttpServerWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				return FutureMono.from(ops.handshakerResult)
-				                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(ops, ops))))
-				                 .doAfterSuccessOrError(ops);
+				return FutureCompletable.from(ops.handshakerResult)
+				                 .andThen(Completable.defer(() -> websocketHandler.apply(ops, ops)))
+				                 .doOnEvent(ops);
 			}
 		}
 		else {
 			log.error("Cannot enable websocket if headers have already been sent");
 		}
-		return Mono.error(new IllegalStateException("Failed to upgrade to websocket"));
+		return Completable.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
 
 	static final Logger log = Loggers.getLogger(HttpServerOperations.class);

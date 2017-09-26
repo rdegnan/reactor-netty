@@ -18,8 +18,7 @@ package reactor.ipc.netty.udp;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
+import io.reactivex.Completable;
 
 /**
  * @author Stephane Maldini
@@ -30,9 +29,9 @@ interface UdpConnection {
 	 *
 	 * @param multicastAddress multicast address of the group to join
 	 *
-	 * @return a {@link Publisher} that will be complete when the group has been joined
+	 * @return a {@link Completable} that will be complete when the group has been joined
 	 */
-	default Mono<Void> join(InetAddress multicastAddress) {
+	default Completable join(InetAddress multicastAddress) {
 		return join(multicastAddress, null);
 	}
 
@@ -41,18 +40,18 @@ interface UdpConnection {
 	 *
 	 * @param multicastAddress multicast address of the group to join
 	 *
-	 * @return a {@link Publisher} that will be complete when the group has been joined
+	 * @return a {@link Completable} that will be complete when the group has been joined
 	 */
-	Mono<Void> join(final InetAddress multicastAddress, NetworkInterface iface);
+	Completable join(final InetAddress multicastAddress, NetworkInterface iface);
 
 	/**
 	 * Leave a multicast group.
 	 *
 	 * @param multicastAddress multicast address of the group to leave
 	 *
-	 * @return a {@link Publisher} that will be complete when the group has been left
+	 * @return a {@link Completable} that will be complete when the group has been left
 	 */
-	default Mono<Void> leave(InetAddress multicastAddress) {
+	default Completable leave(InetAddress multicastAddress) {
 		return leave(multicastAddress, null);
 	}
 
@@ -61,7 +60,7 @@ interface UdpConnection {
 	 *
 	 * @param multicastAddress multicast address of the group to leave
 	 *
-	 * @return a {@link Publisher} that will be complete when the group has been left
+	 * @return a {@link Completable} that will be complete when the group has been left
 	 */
-	Mono<Void> leave(final InetAddress multicastAddress, NetworkInterface iface);
+	Completable leave(final InetAddress multicastAddress, NetworkInterface iface);
 }

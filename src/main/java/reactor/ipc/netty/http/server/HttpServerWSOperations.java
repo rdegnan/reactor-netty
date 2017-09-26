@@ -17,7 +17,6 @@
 package reactor.ipc.netty.http.server;
 
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.function.BiConsumer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -32,7 +31,7 @@ import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.PongWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFactory;
-import io.netty.util.ReferenceCountUtil;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.http.HttpOperations;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
@@ -45,7 +44,7 @@ import reactor.ipc.netty.http.websocket.WebsocketOutbound;
  * @author Simon Baslé
  */
 final class HttpServerWSOperations extends HttpServerOperations
-		implements WebsocketInbound, WebsocketOutbound, BiConsumer<Void, Throwable> {
+		implements WebsocketInbound, WebsocketOutbound, Consumer<Throwable> {
 
 	final WebSocketServerHandshaker handshaker;
 	final ChannelPromise            handshakerResult;
@@ -112,7 +111,7 @@ final class HttpServerWSOperations extends HttpServerOperations
 	}
 
 	@Override
-	public void accept(Void aVoid, Throwable throwable) {
+	public void accept(Throwable throwable) {
 		if (throwable == null) {
 			if (channel().isActive()) {
 				sendClose(null, f -> onHandlerTerminate());

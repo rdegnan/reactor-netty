@@ -19,16 +19,17 @@ package reactor.ipc.netty.http.client;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.function.Consumer;
 
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -63,7 +64,11 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 
 	@Override
 	default HttpClientRequest context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return this;
 	}
 
@@ -169,11 +174,11 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http request
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Completable} successful on committed response
 	 *
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send() {
+	default Completable send() {
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -184,9 +189,9 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	 *
 	 * @param formCallback called when form generator is created
 	 *
-	 * @return a {@link Flux} of latest in-flight or uploaded bytes,
+	 * @return a {@link Flowable} of latest in-flight or uploaded bytes,
 	 */
-	Flux<Long> sendForm(Consumer<Form> formCallback);
+	Flowable<Long> sendForm(Consumer<Form> formCallback);
 
 	/**
 	 * Send the headers.

@@ -21,14 +21,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
-import org.reactivestreams.Publisher;
+import io.reactivex.CompletableSource;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import reactor.ipc.netty.ByteBufFlowable;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
@@ -40,7 +40,7 @@ import reactor.ipc.netty.http.websocket.WebsocketOutbound;
  * @author Stephane Maldini
  */
 public interface HttpServerRoutes extends
-                                  BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>> {
+                                  BiFunction<HttpServerRequest, HttpServerResponse, CompletableSource> {
 
 	/**
 	 * @return a new default routing registry {@link HttpServerRoutes}
@@ -61,7 +61,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes delete(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		return route(HttpPredicate.delete(path), handler);
 	}
 
@@ -172,7 +172,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes get(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		return route(HttpPredicate.get(path), handler);
 	}
 
@@ -183,7 +183,7 @@ public interface HttpServerRoutes extends
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	default HttpServerRoutes index(final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+	default HttpServerRoutes index(final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		return route(INDEX_PREDICATE, handler);
 	}
 
@@ -199,7 +199,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes post(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		return route(HttpPredicate.post(path), handler);
 	}
 
@@ -215,7 +215,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes put(String path,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		return route(HttpPredicate.put(path), handler);
 	}
 
@@ -228,7 +228,7 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler);
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler);
 
 	/**
 	 * Listen for WebSocket on the passed path to be used as a routing condition. Incoming
@@ -243,7 +243,7 @@ public interface HttpServerRoutes extends
 	 */
 	default HttpServerRoutes ws(String path,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
-					Publisher<Void>> handler) {
+					CompletableSource> handler) {
 		return ws(path, handler, null);
 	}
 
@@ -262,7 +262,7 @@ public interface HttpServerRoutes extends
 	@SuppressWarnings("unchecked")
 	default HttpServerRoutes ws(String path,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends
-					Publisher<Void>> handler,
+					CompletableSource> handler,
 			String protocols) {
 		Predicate<HttpServerRequest> condition = HttpPredicate.get(path);
 

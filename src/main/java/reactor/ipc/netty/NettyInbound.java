@@ -17,12 +17,13 @@
 package reactor.ipc.netty;
 
 import java.net.InetSocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import reactor.core.publisher.Flux;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 
 /**
  * An inbound-traffic API delegating to an underlying {@link Channel}
@@ -62,7 +63,11 @@ public interface NettyInbound {
 	 * @return the {@link NettyContext}
 	 */
 	default NettyInbound context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return this;
 	}
 
@@ -83,7 +88,7 @@ public interface NettyInbound {
 	}
 
 	/**
-	 * A {@link Flux} extension that allows for extra decoding operators
+	 * A {@link Flowable} extension that allows for extra decoding operators
 	 * @return a new {@link ByteBufFlowable}
 	 */
 	default ByteBufFlowable receive() {
@@ -94,11 +99,11 @@ public interface NettyInbound {
 
 
 	/**
-	 * a {@literal Object} inbound {@link Flux}
+	 * a {@literal Object} inbound {@link Flowable}
 	 *
-	 * @return a {@literal Object} inbound {@link Flux}
+	 * @return a {@literal Object} inbound {@link Flowable}
 	 */
-	Flux<?> receiveObject();
+	Flowable<?> receiveObject();
 
 	/**
 	 * Get the address of the remote peer.

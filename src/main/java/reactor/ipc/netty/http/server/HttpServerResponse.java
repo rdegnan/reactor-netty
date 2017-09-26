@@ -15,14 +15,16 @@
  */
 package reactor.ipc.netty.http.server;
 
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.cookie.Cookie;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
@@ -69,7 +71,11 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 
 	@Override
 	default HttpServerResponse context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return this;
 	}
 
@@ -130,7 +136,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 * @return a {@link Mono} successful on committed response
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send(){
+	default Completable send(){
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -146,7 +152,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @return a {@link Mono} successful on flush confirmation
 	 */
-	Mono<Void> sendNotFound();
+	Completable sendNotFound();
 
 	/**
 	 * Send redirect status {@link HttpResponseStatus#FOUND} along with a location
@@ -156,7 +162,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @return a {@link Mono} successful on flush confirmation
 	 */
-	Mono<Void> sendRedirect(String location);
+	Completable sendRedirect(String location);
 
 	/**
 	 * Upgrade connection to Websocket. Mono and Callback are invoked on handshake
@@ -165,7 +171,7 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 * @param websocketHandler the in/out handler for ws transport
 	 * @return a {@link Mono} completing when upgrade is confirmed
 	 */
-	default Mono<Void> sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Completable sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler) {
 		return sendWebsocket(uri(), websocketHandler);
 	}
 
@@ -178,8 +184,8 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @return a {@link Mono} completing when upgrade is confirmed
 	 */
-	Mono<Void> sendWebsocket(String protocols,
-			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
+	Completable sendWebsocket(String protocols,
+			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends CompletableSource> websocketHandler);
 
 
 	/**

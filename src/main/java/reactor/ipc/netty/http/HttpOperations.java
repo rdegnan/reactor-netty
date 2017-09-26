@@ -21,7 +21,6 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.function.BiFunction;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
@@ -40,10 +39,12 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -76,7 +77,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	protected HttpOperations(Channel ioChannel,
-			BiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>> handler,
+			BiFunction<? super INBOUND, ? super OUTBOUND, ? extends CompletableSource> handler,
 			ContextHandler<?> context) {
 		super(ioChannel, handler, context);
 		//reset channel to manual read if re-used
@@ -123,7 +124,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 			else {
 				message = outboundHttpMessage();
 			}
-			return then(FutureMono.deferFuture(() -> {
+			return then(FutureCompletable.deferFuture(() -> {
 				if(!channel().isActive()){
 					throw new AbortedException();
 				}
@@ -136,7 +137,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	@Override
-	public Mono<Void> then() {
+	public Completable then() {
 		if (markSentHeaders()) {
 			handleOutboundWithNoContent();
 
@@ -150,10 +151,10 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 				markPersistent(false);
 			}
 
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
+			return FutureCompletable.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
 		}
 		else {
-			return Mono.empty();
+			return Completable.complete();
 		}
 	}
 

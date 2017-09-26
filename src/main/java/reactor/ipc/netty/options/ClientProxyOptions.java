@@ -18,7 +18,6 @@ package reactor.ipc.netty.options;
 
 import java.net.InetSocketAddress;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -26,6 +25,8 @@ import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.proxy.Socks4ProxyHandler;
 import io.netty.handler.proxy.Socks5ProxyHandler;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Function;
 
 /**
  * Proxy configuration
@@ -105,8 +106,14 @@ public class ClientProxyOptions {
 	public final ProxyHandler newProxyHandler() {
 		InetSocketAddress proxyAddr = this.address.get();
 		String username = this.username;
-		String password = Objects.nonNull(username) && Objects.nonNull(this.password) ?
-				this.password.apply(username) : null;
+		String password = null;
+		if (Objects.nonNull(username) && Objects.nonNull(this.password)) {
+			try {
+				password = this.password.apply(username);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
+		}
 
 		switch (this.type) {
 			case HTTP:

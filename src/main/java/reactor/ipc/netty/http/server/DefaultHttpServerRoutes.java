@@ -23,13 +23,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
-import org.reactivestreams.Publisher;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 
 /**
  * @author Stephane Maldini
@@ -70,7 +70,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 	@Override
 	public HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler) {
 		Objects.requireNonNull(condition, "condition");
 		Objects.requireNonNull(handler, "handler");
 
@@ -86,7 +86,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 	}
 
 	@Override
-	public Publisher<Void> apply(HttpServerRequest request, HttpServerResponse response) {
+	public CompletableSource apply(HttpServerRequest request, HttpServerResponse response) {
 		final Iterator<HttpRouteHandler> iterator = handlers.iterator();
 		HttpRouteHandler cursor;
 
@@ -100,7 +100,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 		catch (Throwable t) {
 			Exceptions.throwIfFatal(t);
-			return Mono.error(t); //500
+			return Completable.error(t); //500
 		}
 
 		return response.sendNotFound();
@@ -109,16 +109,16 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 	/**
 	 */
 	static final class HttpRouteHandler
-			implements BiFunction<HttpServerRequest, HttpServerResponse, Publisher<Void>>,
+			implements BiFunction<HttpServerRequest, HttpServerResponse, CompletableSource>,
 			           Predicate<HttpServerRequest> {
 
 		final Predicate<? super HttpServerRequest>          condition;
-		final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>>
+		final BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource>
 		                                                    handler;
 		final Function<? super String, Map<String, String>> resolver;
 
 		HttpRouteHandler(Predicate<? super HttpServerRequest> condition,
-				BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+				BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends CompletableSource> handler,
 				Function<? super String, Map<String, String>> resolver) {
 			this.condition = Objects.requireNonNull(condition, "condition");
 			this.handler = Objects.requireNonNull(handler, "handler");
@@ -126,13 +126,13 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 
 		@Override
-		public Publisher<Void> apply(HttpServerRequest request,
-				HttpServerResponse response) {
+		public CompletableSource apply(HttpServerRequest request,
+				HttpServerResponse response) throws Exception {
 			return handler.apply(request.paramsResolver(resolver), response);
 		}
 
 		@Override
-		public boolean test(HttpServerRequest o) {
+		public boolean test(HttpServerRequest o) throws Exception {
 			return condition.test(o);
 		}
 	}

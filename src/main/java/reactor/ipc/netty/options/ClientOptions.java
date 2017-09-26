@@ -19,8 +19,6 @@ package reactor.ipc.netty.options;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
@@ -36,7 +34,9 @@ import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.NetUtil;
-import reactor.core.Exceptions;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -361,7 +361,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 				return sslContext(builder.build());
 			}
 			catch (Exception sslException) {
-				throw Exceptions.bubble(sslException);
+				throw Exceptions.propagate(sslException);
 			}
 		}
 
@@ -411,8 +411,12 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER proxy(Function<ClientProxyOptions.TypeSpec, ClientProxyOptions.Builder> proxyOptions) {
 			Objects.requireNonNull(proxyOptions, "proxyOptions");
-			ClientProxyOptions.Builder builder = proxyOptions.apply(ClientProxyOptions.builder());
-			this.proxyOptions = builder.build();
+			try {
+				ClientProxyOptions.Builder builder = proxyOptions.apply(ClientProxyOptions.builder());
+				this.proxyOptions = builder.build();
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 			if(bootstrapTemplate.config().resolver() == DefaultAddressResolverGroup.INSTANCE) {
 				resolver(NoopAddressResolverGroup.INSTANCE);
 			}

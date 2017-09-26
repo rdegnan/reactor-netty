@@ -20,11 +20,11 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.util.Objects;
-import java.util.function.Function;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.reactivex.functions.Function;
 import reactor.ipc.netty.options.ClientOptions;
 import reactor.ipc.netty.options.ClientProxyOptions;
 import reactor.ipc.netty.options.ClientProxyOptions.Proxy;

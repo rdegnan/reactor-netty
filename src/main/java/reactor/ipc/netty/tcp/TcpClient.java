@@ -19,8 +19,6 @@ package reactor.ipc.netty.tcp;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -29,9 +27,12 @@ import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -119,7 +120,11 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	protected TcpClient(TcpClient.Builder builder) {
 		ClientOptions.Builder<?> clientOptionsBuilder = ClientOptions.builder();
 		if (Objects.nonNull(builder.options)) {
-			builder.options.accept(clientOptionsBuilder);
+			try {
+				builder.options.accept(clientOptionsBuilder);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
 			clientOptionsBuilder.loopResources(TcpResources.get());
@@ -135,7 +140,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	@Override
-	public final Mono<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
+	public final Maybe<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler) {
 		Objects.requireNonNull(handler, "handler");
 		return newHandler(handler, null, true, null);
 	}
@@ -162,16 +167,16 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 *
 	 * @return a new Mono to connect on subscribe
 	 */
-	protected Mono<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			InetSocketAddress address,
-			boolean secure,
-			Consumer<? super Channel> onSetup) {
+	protected Maybe<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler,
+																					 InetSocketAddress address,
+																					 boolean secure,
+																					 Consumer<? super Channel> onSetup) {
 
-		final BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>>
+		final BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource>
 				targetHandler =
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
-		return Mono.create(sink -> {
+		return Maybe.create(sink -> {
 			SocketAddress remote = address != null ? address : options.getAddress();
 
 			ChannelPool pool = null;
@@ -185,7 +190,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 
 			ContextHandler<SocketChannel> contextHandler =
 					doHandler(targetHandler, sink, secure, remote, pool, onSetup);
-			sink.onCancel(contextHandler);
+			sink.setDisposable(contextHandler);
 
 			if (pool == null) {
 				Bootstrap b = options.get();
@@ -210,8 +215,8 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 *
 	 * @return a new {@link ContextHandler}
 	 */
-	protected ContextHandler<SocketChannel> doHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink,
+	protected ContextHandler<SocketChannel> doHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler,
+			MaybeEmitter<NettyContext> sink,
 			boolean secure,
 			SocketAddress providedAddress,
 			ChannelPool pool,

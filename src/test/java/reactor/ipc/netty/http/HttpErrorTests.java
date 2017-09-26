@@ -23,7 +23,7 @@ import java.util.List;
 import org.junit.Assert;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
@@ -59,7 +59,7 @@ public class HttpErrorTests {
 
 		System.out.println("END");
 
-		FutureMono.from(r.context().channel().closeFuture()).block(Duration.ofSeconds(30));
+		FutureCompletable.from(r.context().channel().closeFuture()).block(Duration.ofSeconds(30));
 
 		Assert.assertTrue(result.isEmpty());
 		Assert.assertTrue(r.isDisposed());

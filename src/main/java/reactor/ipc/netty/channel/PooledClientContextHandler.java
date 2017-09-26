@@ -27,9 +27,9 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.SucceededFuture;
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.DirectProcessor;
-import reactor.core.publisher.MonoSink;
+import io.reactivex.Completable;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.subjects.CompletableSubject;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.ClientOptions;
 import reactor.util.Logger;
@@ -48,10 +48,10 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 
 	static final Logger log = Loggers.getLogger(PooledClientContextHandler.class);
 
-	final ClientOptions         clientOptions;
-	final boolean               secure;
-	final ChannelPool           pool;
-	final DirectProcessor<Void> onReleaseEmitter;
+	final ClientOptions      clientOptions;
+	final boolean            secure;
+	final ChannelPool        pool;
+	final CompletableSubject onReleaseEmitter;
 
 	volatile Future<CHANNEL> future;
 
@@ -64,7 +64,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 
 	PooledClientContextHandler(ChannelOperations.OnNew<CHANNEL> channelOpFactory,
 			ClientOptions options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			boolean secure,
 			SocketAddress providedAddress,
@@ -73,7 +73,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 		this.clientOptions = options;
 		this.secure = secure;
 		this.pool = pool;
-		this.onReleaseEmitter = DirectProcessor.create();
+		this.onReleaseEmitter = CompletableSubject.create();
 	}
 
 	@Override
@@ -81,10 +81,10 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 		if (!fired) {
 			fired = true;
 			if (context != null) {
-				sink.success(context);
+				sink.onSuccess(context);
 			}
 			else {
-				sink.success();
+				sink.onComplete();
 			}
 		}
 	}
@@ -103,7 +103,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 					log.debug("Cancelled existing channel from pool: {}",
 							pool.toString());
 				}
-				sink.success();
+				sink.onComplete();
 				return;
 			}
 
@@ -143,7 +143,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 			if (future.isSuccess()) {
 				disposeOperationThenRelease(future.get());
 			}
-			sink.success();
+			sink.onComplete();
 			return;
 		}
 
@@ -170,7 +170,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	}
 
 	@Override
-	protected Publisher<Void> onCloseOrRelease(Channel channel) {
+	protected Completable onCloseOrRelease(Channel channel) {
 		return onReleaseEmitter;
 	}
 
@@ -182,7 +182,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 						"asynchronous user cancellation");
 			}
 			disposeOperationThenRelease(c);
-			sink.success();
+			sink.onComplete();
 			return;
 		}
 

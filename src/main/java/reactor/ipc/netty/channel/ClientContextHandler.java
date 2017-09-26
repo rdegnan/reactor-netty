@@ -23,7 +23,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.proxy.ProxyHandler;
-import reactor.core.publisher.MonoSink;
+import io.reactivex.MaybeEmitter;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.options.ClientOptions;
@@ -44,7 +44,7 @@ final class ClientContextHandler<CHANNEL extends Channel>
 
 	ClientContextHandler(ChannelOperations.OnNew<CHANNEL> channelOpFactory,
 			ClientOptions options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			boolean secure,
 			SocketAddress providedAddress) {
@@ -58,10 +58,10 @@ final class ClientContextHandler<CHANNEL extends Channel>
 		if(!fired) {
 			fired = true;
 			if(context != null) {
-				sink.success(context);
+				sink.onSuccess(context);
 			}
 			else {
-				sink.success();
+				sink.onComplete();
 			}
 		}
 	}
@@ -71,7 +71,7 @@ final class ClientContextHandler<CHANNEL extends Channel>
 		channel.close();
 		if(!fired) {
 			fired = true;
-			sink.error(new AbortedException("Channel has been dropped"));
+			sink.onError(new AbortedException("Channel has been dropped"));
 		}
 	}
 

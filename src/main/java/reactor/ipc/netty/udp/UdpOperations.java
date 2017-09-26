@@ -19,13 +19,14 @@ package reactor.ipc.netty.udp;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
-import java.util.function.BiFunction;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.socket.DatagramChannel;
+import io.reactivex.Completable;
+import io.reactivex.CompletableSource;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureCompletable;
 import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
 import reactor.util.Logger;
@@ -38,7 +39,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 		implements UdpInbound, UdpOutbound {
 
 	static UdpOperations bind(DatagramChannel channel,
-			BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler,
+			BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends CompletableSource> handler,
 			ContextHandler<?> context) {
 		return new UdpOperations(channel, handler, context);
 	}
@@ -46,7 +47,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 	final DatagramChannel  datagramChannel;
 
 	UdpOperations(DatagramChannel channel,
-			BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler,
+			BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends CompletableSource> handler,
 			ContextHandler<?> context) {
 		super(channel, handler, context);
 		this.datagramChannel = channel;
@@ -59,7 +60,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 	 *
 	 * @return a {@link Publisher} that will be complete when the group has been joined
 	 */
-	public Mono<Void> join(final InetAddress multicastAddress, NetworkInterface iface) {
+	public Completable join(final InetAddress multicastAddress, NetworkInterface iface) {
 		if (null == iface && null != datagramChannel.config().getNetworkInterface()) {
 			iface = datagramChannel.config().getNetworkInterface();
 		}
@@ -74,8 +75,8 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.joinGroup(multicastAddress);
 		}
 
-		return FutureMono.from(future)
-		                 .doOnSuccess(v -> log.info("JOIN {}", multicastAddress));
+		return FutureCompletable.from(future)
+		                 .doOnComplete(() -> log.info("JOIN {}", multicastAddress));
 	}
 
 	/**
@@ -85,7 +86,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 	 *
 	 * @return a {@link Publisher} that will be complete when the group has been left
 	 */
-	public Mono<Void> leave(final InetAddress multicastAddress, NetworkInterface iface) {
+	public Completable leave(final InetAddress multicastAddress, NetworkInterface iface) {
 		if (null == iface && null != datagramChannel.config().getNetworkInterface()) {
 			iface = datagramChannel.config().getNetworkInterface();
 		}
@@ -100,8 +101,8 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.leaveGroup(multicastAddress);
 		}
 
-		return FutureMono.from(future)
-		                 .doOnSuccess(v -> log.info("JOIN {}", multicastAddress));
+		return FutureCompletable.from(future)
+		                 .doOnComplete(() -> log.info("JOIN {}", multicastAddress));
 	}
 
 	static final Logger log = Loggers.getLogger(UdpOperations.class);

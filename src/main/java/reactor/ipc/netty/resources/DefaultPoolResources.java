@@ -20,7 +20,6 @@ import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
@@ -32,9 +31,8 @@ import io.netty.channel.pool.ChannelPoolHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.internal.PlatformDependent;
-import reactor.core.publisher.Mono;
-import reactor.util.Logger;
-import reactor.util.Loggers;
+import io.reactivex.Completable;
+import io.reactivex.functions.Consumer;
 
 /**
  * @author Stephane Maldini
@@ -76,9 +74,6 @@ final class DefaultPoolResources implements PoolResources {
 			else {
 				address = b.config()
 				          .remoteAddress();
-			}
-			if (log.isDebugEnabled()) {
-				log.debug("New {} client pool for {}", name, address);
 			}
 			pool = new Pool(b, provider, onChannelCreate, group);
 			if (channelPools.putIfAbsent(address, pool) == null) {
@@ -149,31 +144,16 @@ final class DefaultPoolResources implements PoolResources {
 		@Override
 		public void channelReleased(Channel ch) throws Exception {
 			activeConnections.decrementAndGet();
-			if (log.isDebugEnabled()) {
-				log.debug("Released {}, now {} active connections",
-						ch.toString(),
-						activeConnections);
-			}
 		}
 
 		@Override
 		public void channelAcquired(Channel ch) throws Exception {
 			activeConnections.incrementAndGet();
-			if (log.isDebugEnabled()) {
-				log.debug("Acquired {}, now {} active connections",
-						ch.toString(),
-						activeConnections);
-			}
 		}
 
 		@Override
 		public void channelCreated(Channel ch) throws Exception {
 			activeConnections.incrementAndGet();
-			if (log.isDebugEnabled()) {
-				log.debug("Created {}, now {} active connections",
-						ch.toString(),
-						activeConnections);
-			}
 			if (onChannelCreate != null) {
 				onChannelCreate.accept(ch);
 			}
@@ -192,8 +172,8 @@ final class DefaultPoolResources implements PoolResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.fromRunnable(() -> {
+	public Completable disposeLater() {
+		return Completable.fromRunnable(() -> {
 			Pool pool;
 			for (SocketAddress key: channelPools.keySet()) {
 				pool = channelPools.remove(key);
@@ -210,7 +190,4 @@ final class DefaultPoolResources implements PoolResources {
 		                                             .stream()
 		                                             .allMatch(AtomicBoolean::get);
 	}
-
-	static final Logger log = Loggers.getLogger(DefaultPoolResources.class);
-
 }

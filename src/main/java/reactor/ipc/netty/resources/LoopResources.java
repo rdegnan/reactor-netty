@@ -24,8 +24,8 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.reactivex.Completable;
 import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
 
 /**
  * An {@link EventLoopGroup} selector with associated
@@ -222,11 +222,11 @@ public interface LoopResources extends Disposable {
 	}
 
 	/**
-	 * Returns a Mono that triggers the disposal of underlying resources when subscribed to.
+	 * Returns a Completable that triggers the disposal of underlying resources when subscribed to.
 	 *
-	 * @return a Mono representing the completion of resources disposal.
+	 * @return a Completable representing the completion of resources disposal.
 	 **/
-	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+	default Completable disposeLater() {
+		return Completable.complete(); //noop default
 	}
 }

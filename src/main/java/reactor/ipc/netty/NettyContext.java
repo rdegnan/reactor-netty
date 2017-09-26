@@ -22,8 +22,10 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.functions.Action;
 import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
 
 /**
  * Hold contextual information for the underlying {@link Channel}
@@ -232,14 +234,14 @@ public interface NettyContext extends Disposable {
 	}
 
 	/**
-	 * Return an observing {@link Mono} terminating with success when shutdown
+	 * Return an observing {@link Maybe} terminating with success when shutdown
 	 * successfully
 	 * or error.
 	 *
-	 * @return a {@link Mono} terminating with success if shutdown successfully or error
+	 * @return a {@link Maybe} terminating with success if shutdown successfully or error
 	 */
-	default Mono<Void> onClose(){
-		return FutureMono.from(channel().closeFuture());
+	default Completable onClose(){
+		return FutureCompletable.from(channel().closeFuture());
 	}
 
 	/**
@@ -249,8 +251,8 @@ public interface NettyContext extends Disposable {
 	 *
 	 * @return {@literal this}
 	 */
-	default NettyContext onClose(Runnable onClose){
-		onClose().subscribe(null, e -> onClose.run(), onClose);
+	default NettyContext onClose(Action onClose){
+		onClose().subscribe(onClose, e -> onClose.run());
 		return this;
 	}
 

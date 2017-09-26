@@ -18,17 +18,19 @@ package reactor.ipc.netty.udp;
 
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
@@ -121,7 +123,11 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	private UdpClient(UdpClient.Builder builder) {
 		UdpClientOptions.Builder clientOptionsBuilder = UdpClientOptions.builder();
 		if (Objects.nonNull(builder.options)) {
-			builder.options.accept(clientOptionsBuilder);
+			try {
+				builder.options.accept(clientOptionsBuilder);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
 			clientOptionsBuilder.loopResources(DEFAULT_UDP_LOOPS);
@@ -130,16 +136,16 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	}
 
 	@Override
-	public Mono<? extends NettyContext> newHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler) {
-		final BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>>
+	public Maybe<? extends NettyContext> newHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends CompletableSource> handler) {
+		final BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends CompletableSource>
 				targetHandler =
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
-		return Mono.create(sink -> {
+		return Maybe.create(sink -> {
 			Bootstrap b = options.get();
 			SocketAddress adr = options.getAddress();
 			if(adr == null){
-				sink.error(new NullPointerException("Provided ClientOptions do not " +
+				sink.onError(new NullPointerException("Provided ClientOptions do not " +
 						"define any address to bind to "));
 				return;
 			}
@@ -158,8 +164,8 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	 *
 	 * @return a new {@link ContextHandler}
 	 */
-	protected ContextHandler<DatagramChannel> doHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink,
+	protected ContextHandler<DatagramChannel> doHandler(BiFunction<? super UdpInbound, ? super UdpOutbound, ? extends CompletableSource> handler,
+			MaybeEmitter<NettyContext> sink,
 			SocketAddress providedAddress) {
 		return ContextHandler.newClientContext(sink,
 				options,

@@ -24,8 +24,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
+import io.reactivex.Completable;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureCompletable;
 
 /**
  * An adapted global eventLoop handler.
@@ -92,8 +93,8 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.defer(() -> {
+	public Completable disposeLater() {
+		return Completable.defer(() -> {
 			EventLoopGroup cacheNativeClientGroup = cacheNativeClientLoops.get();
 			EventLoopGroup cacheNativeSelectGroup = cacheNativeSelectLoops.get();
 			EventLoopGroup cacheNativeServerGroup = cacheNativeServerLoops.get();
@@ -113,23 +114,23 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 				}
 			}
 
-			Mono<?> clMono = FutureMono.from((Future) clientLoops.terminationFuture());
-			Mono<?> sslMono = FutureMono.from((Future)serverSelectLoops.terminationFuture());
-			Mono<?> slMono = FutureMono.from((Future)serverLoops.terminationFuture());
-			Mono<?> cnclMono = Mono.empty();
+			Completable cl = FutureCompletable.from((Future) clientLoops.terminationFuture());
+			Completable ssl = FutureCompletable.from((Future)serverSelectLoops.terminationFuture());
+			Completable sl = FutureCompletable.from((Future)serverLoops.terminationFuture());
+			Completable cncl = Completable.complete();
 			if(cacheNativeClientGroup != null){
-				cnclMono = FutureMono.from((Future) cacheNativeClientGroup.terminationFuture());
+				cncl = FutureCompletable.from((Future) cacheNativeClientGroup.terminationFuture());
 			}
-			Mono<?> cnslMono = Mono.empty();
+			Completable cnsl = Completable.complete();
 			if(cacheNativeSelectGroup != null){
-				cnslMono = FutureMono.from((Future) cacheNativeSelectGroup.terminationFuture());
+				cnsl = FutureCompletable.from((Future) cacheNativeSelectGroup.terminationFuture());
 			}
-			Mono<?> cnsrvlMono = Mono.empty();
+			Completable cnsrvl = Completable.complete();
 			if(cacheNativeServerGroup != null){
-				cnsrvlMono = FutureMono.from((Future) cacheNativeServerGroup.terminationFuture());
+				cnsrvl = FutureCompletable.from((Future) cacheNativeServerGroup.terminationFuture());
 			}
 
-			return Mono.zip(clMono, sslMono, slMono, cnclMono, cnslMono, cnsrvlMono).then();
+			return Completable.mergeArray(cl, ssl, sl, cncl, cnsl, cnsrvl);
 		});
 	}
 

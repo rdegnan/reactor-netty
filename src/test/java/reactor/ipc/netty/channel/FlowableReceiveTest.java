@@ -28,7 +28,7 @@ import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.server.HttpServer;
 
-public class FluxReceiveTest {
+public class FlowableReceiveTest {
 
 	@Test
 	public void testByteBufsReleasedWhenTimeout() {

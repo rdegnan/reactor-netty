@@ -17,11 +17,11 @@
 package reactor.ipc.netty;
 
 import java.util.Objects;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
+import io.reactivex.functions.BiConsumer;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
 
 /**

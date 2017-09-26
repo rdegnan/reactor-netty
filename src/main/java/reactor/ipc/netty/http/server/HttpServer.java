@@ -17,9 +17,6 @@
 package reactor.ipc.netty.http.server;
 
 import java.util.Objects;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -28,9 +25,13 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 
-import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
+import io.reactivex.CompletableSource;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiConsumer;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -126,7 +127,11 @@ public final class HttpServer
 			                    .port(builder.port);
 		}
 		else {
-			builder.options.accept(serverOptionsBuilder);
+			try {
+				builder.options.accept(serverOptionsBuilder);
+			} catch (Throwable t) {
+				throw Exceptions.propagate(t);
+			}
 		}
 		if (!serverOptionsBuilder.isLoopAvailable()) {
 			serverOptionsBuilder.loopResources(HttpResources.get());
@@ -151,23 +156,27 @@ public final class HttpServer
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Mono<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
-			HttpServerResponse, ? extends Publisher<Void>> handler) {
+	public Maybe<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
+        HttpServerResponse, ? extends CompletableSource> handler) {
 		Objects.requireNonNull(handler, "handler");
-		return server.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) handler);
+		return server.newHandler((BiFunction<NettyInbound, NettyOutbound, CompletableSource>) handler);
 	}
 
 	/**
 	 * Define routes for the server through the provided {@link HttpServerRoutes} builder.
 	 *
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
-	 * @return a new {@link Mono} starting the router on subscribe
+	 * @return a new {@link Maybe} starting the router on subscribe
 	 */
-	public Mono<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
+	public Maybe<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
 			routesBuilder) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return newHandler(routes);
 	}
 
@@ -183,7 +192,11 @@ public final class HttpServer
 	public BlockingNettyContext startRouter(Consumer<? super HttpServerRoutes> routesBuilder) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		return start(routes);
 	}
 
@@ -222,7 +235,11 @@ public final class HttpServer
 			Consumer<BlockingNettyContext> onStart) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Throwable t) {
+			throw Exceptions.propagate(t);
+		}
 		startAndAwait(routes, onStart);
 	}
 
@@ -237,8 +254,8 @@ public final class HttpServer
 
 		@Override
 		protected ContextHandler<Channel> doHandler(
-				BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-				MonoSink<NettyContext> sink) {
+				BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends CompletableSource> handler,
+				MaybeEmitter<NettyContext> sink) {
 			return ContextHandler.newServerContext(sink,
 					options,
 					loggingHandler,
