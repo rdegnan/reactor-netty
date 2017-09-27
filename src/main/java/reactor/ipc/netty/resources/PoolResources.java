@@ -26,6 +26,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
+import io.reactivex.Flowable;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
@@ -169,7 +170,7 @@ public interface PoolResources extends Disposable {
 	 *
 	 * @return a Mono representing the completion of resources disposal.
 	 **/
-	default Mono<Void> disposeLater() {
-		return Mono.empty(); //noop default
+	default Flowable<Void> disposeLater() {
+		return Flowable.empty(); //noop default
 	}
 }

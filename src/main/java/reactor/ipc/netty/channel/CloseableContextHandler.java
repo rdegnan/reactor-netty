@@ -27,7 +27,7 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.MonoSink;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.util.Logger;
@@ -55,7 +55,7 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 
 	@Override
 	protected Publisher<Void> onCloseOrRelease(Channel channel) {
-		return FutureMono.from(channel.closeFuture());
+		return FutureFlowable.from(channel.closeFuture());
 	}
 
 	@Override

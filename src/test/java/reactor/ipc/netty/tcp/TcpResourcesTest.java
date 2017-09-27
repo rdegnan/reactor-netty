@@ -24,6 +24,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
+import io.reactivex.Flowable;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
@@ -52,8 +53,8 @@ public class TcpResourcesTest {
 			}
 
 			@Override
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> loopDisposed.set(true));
+			public Flowable<Void> disposeLater() {
+				return Flowable.<Void>empty().doOnComplete(() -> loopDisposed.set(true));
 			}
 
 			@Override
@@ -70,8 +71,8 @@ public class TcpResourcesTest {
 				return null;
 			}
 
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> poolDisposed.set(true));
+			public Flowable<Void> disposeLater() {
+				return Flowable.<Void>empty().doOnComplete(() -> poolDisposed.set(true));
 			}
 
 			@Override
@@ -91,7 +92,7 @@ public class TcpResourcesTest {
 		assertThat(tcpResources.isDisposed()).isFalse();
 
 		tcpResources.disposeLater()
-		            .doOnSuccess(c -> assertThat(tcpResources.isDisposed()).isTrue())
+		            .doOnComplete(() -> assertThat(tcpResources.isDisposed()).isTrue())
 		            .subscribe();
 		//not immediately disposed when subscribing
 		assertThat(tcpResources.isDisposed()).as("immediate status on disposeLater subscribe").isFalse();
@@ -108,7 +109,7 @@ public class TcpResourcesTest {
 			TcpResources.shutdownLater();
 			assertThat(newTcpResources.isDisposed()).isFalse();
 
-			TcpResources.shutdownLater().block();
+			TcpResources.shutdownLater().ignoreElements().blockingAwait();
 			assertThat(newTcpResources.isDisposed()).as("shutdownLater completion").isTrue();
 
 			assertThat(TcpResources.tcpResources.get()).isNull();

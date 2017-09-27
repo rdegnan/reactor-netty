@@ -28,7 +28,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.DatagramChannel;
-import reactor.core.publisher.Mono;
+import io.reactivex.Flowable;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -91,17 +91,17 @@ public class TcpResources implements PoolResources, LoopResources {
 	/**
 	 * Prepare to shutdown the global {@link TcpResources} without resetting them,
 	 * effectively cleaning up associated resources without creating new ones. This only
-	 * occurs when the returned {@link Mono} is subscribed to.
+	 * occurs when the returned {@link Flowable} is subscribed to.
 	 *
-	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
+	 * @return a {@link Flowable} triggering the {@link #shutdown()} when subscribed to.
 	 */
-	public static Mono<Void> shutdownLater() {
-		return Mono.defer(() -> {
+	public static Flowable<Void> shutdownLater() {
+		return Flowable.defer(() -> {
 			TcpResources resources = tcpResources.getAndSet(null);
 			if (resources != null) {
 				return resources._disposeLater();
 			}
-			return Mono.empty();
+			return Flowable.empty();
 		});
 	}
 
@@ -119,8 +119,8 @@ public class TcpResources implements PoolResources, LoopResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.empty(); //noop on global by default
+	public Flowable<Void> disposeLater() {
+		return Flowable.empty(); //noop on global by default
 	}
 
 	/**
@@ -136,11 +136,11 @@ public class TcpResources implements PoolResources, LoopResources {
 	 * Dispose underlying resources in a listenable fashion.
 	 * @return the Mono that represents the end of disposal
 	 */
-	protected Mono<Void> _disposeLater() {
-		return Mono.zip(
+	protected Flowable<Void> _disposeLater() {
+		return Flowable.merge(
 				defaultLoops.disposeLater(),
-				defaultPools.disposeLater())
-		           .then();
+				defaultPools.disposeLater()
+		);
 	}
 
 	@Override

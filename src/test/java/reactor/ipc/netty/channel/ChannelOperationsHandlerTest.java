@@ -31,7 +31,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
 import reactor.ipc.netty.http.client.HttpClient;
@@ -85,7 +85,7 @@ public class ChannelOperationsHandlerTest {
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 
-		StepVerifier.create(FutureMono.deferFuture(() -> channel.writeAndFlush(Flux.range(0, 70))))
+		StepVerifier.create(FutureFlowable.deferFuture(() -> channel.writeAndFlush(Flux.range(0, 70))))
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(30));
 

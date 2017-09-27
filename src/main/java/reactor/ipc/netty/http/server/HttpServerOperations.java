@@ -48,10 +48,11 @@ import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.ContextHandler;
@@ -235,15 +236,16 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Flux<?> receiveObject() {
+	public Flowable<?> receiveObject() {
 		// Handle the 'Expect: 100-continue' header if necessary.
 		// TODO: Respond with 413 Request Entity Too Large
 		//   and discard the traffic or close the connection.
 		//       No need to notify the upstream handlers - just log.
 		//       If decoding a response, just throw an error.
 		if (HttpUtil.is100ContinueExpected(nettyRequest)) {
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(CONTINUE))
-			                 .thenMany(super.receiveObject());
+			return FutureFlowable.deferFuture(() -> channel().writeAndFlush(CONTINUE))
+			                 .ignoreElements()
+			                 .andThen(super.receiveObject());
 		}
 		else {
 			return super.receiveObject();
@@ -267,7 +269,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	public Mono<Void> send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage response = newFullEmptyBodyMessage();
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(response));
+			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(response)));
 		}
 		else {
 			return Mono.empty();
@@ -455,7 +457,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 			HttpServerWSOperations ops = new HttpServerWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				return FutureMono.from(ops.handshakerResult)
+				return Mono.fromDirect(FutureFlowable.from(ops.handshakerResult))
 				                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(ops, ops))))
 				                 .doAfterSuccessOrError(ops);
 			}

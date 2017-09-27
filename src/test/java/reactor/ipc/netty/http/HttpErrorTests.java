@@ -19,11 +19,12 @@ package reactor.ipc.netty.http;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
@@ -59,7 +60,7 @@ public class HttpErrorTests {
 
 		System.out.println("END");
 
-		FutureMono.from(r.context().channel().closeFuture()).block(Duration.ofSeconds(30));
+		FutureFlowable.from(r.context().channel().closeFuture()).ignoreElements().blockingAwait(30, TimeUnit.SECONDS);
 
 		Assert.assertTrue(result.isEmpty());
 		Assert.assertTrue(r.isDisposed());

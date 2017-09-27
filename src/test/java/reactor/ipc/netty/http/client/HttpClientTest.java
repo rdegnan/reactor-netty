@@ -23,9 +23,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.cert.CertificateException;
 import java.time.Duration;
-import java.util.AbstractMap;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
@@ -48,7 +48,7 @@ import org.junit.Test;
 import reactor.core.publisher.DirectProcessor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.channel.AbortedException;
 import reactor.ipc.netty.http.server.HttpServer;
@@ -338,10 +338,11 @@ public class HttpClientTest {
 				                                       .sendString(Flux.just("hello")))
 		                                 .block(Duration.ofSeconds(30));
 
-		FutureMono.from(r.context()
+		FutureFlowable.from(r.context()
 		                 .channel()
 		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+							.ignoreElements()
+		          .blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -355,10 +356,11 @@ public class HttpClientTest {
 				                                       .keepAlive(false))
 		                                 .block(Duration.ofSeconds(30));
 
-		FutureMono.from(r.context()
+		FutureFlowable.from(r.context()
 		                 .channel()
 		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+							.ignoreElements()
+		          .blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}
@@ -393,10 +395,11 @@ public class HttpClientTest {
 				                                       .failOnClientError(false))
 		                                 .block(Duration.ofSeconds(30));
 
-		FutureMono.from(r.context()
+		FutureFlowable.from(r.context()
 		                 .channel()
 		                 .closeFuture())
-		          .block(Duration.ofSeconds(5));
+							.ignoreElements()
+		          .blockingAwait(5, TimeUnit.SECONDS);
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.NOT_FOUND);
 	}

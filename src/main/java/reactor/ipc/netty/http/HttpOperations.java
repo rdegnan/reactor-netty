@@ -43,7 +43,7 @@ import io.netty.handler.stream.ChunkedNioFile;
 import org.reactivestreams.Publisher;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -123,12 +123,12 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 			else {
 				message = outboundHttpMessage();
 			}
-			return then(FutureMono.deferFuture(() -> {
+			return then(Mono.fromDirect(FutureFlowable.deferFuture(() -> {
 				if(!channel().isActive()){
 					throw new AbortedException();
 				}
 				return channel().writeAndFlush(message);
-			}));
+			})));
 		}
 		else {
 			return this;
@@ -150,7 +150,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 				markPersistent(false);
 			}
 
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
+			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage())));
 		}
 		else {
 			return Mono.empty();

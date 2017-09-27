@@ -239,7 +239,7 @@ public interface NettyContext extends Disposable {
 	 * @return a {@link Mono} terminating with success if shutdown successfully or error
 	 */
 	default Mono<Void> onClose(){
-		return FutureMono.from(channel().closeFuture());
+		return Mono.fromDirect(FutureFlowable.from(channel().closeFuture()));
 	}
 
 	/**

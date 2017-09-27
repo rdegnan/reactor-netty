@@ -19,7 +19,7 @@ package reactor.ipc.netty.http;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
-import reactor.core.publisher.Mono;
+import io.reactivex.Flowable;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.TcpResources;
@@ -83,17 +83,17 @@ public final class HttpResources extends TcpResources {
 	/**
 	 * Prepare to shutdown the global {@link TcpResources} without resetting them,
 	 * effectively cleaning up associated resources without creating new ones. This only
-	 * occurs when the returned {@link Mono} is subscribed to.
+	 * occurs when the returned {@link Flowable} is subscribed to.
 	 *
-	 * @return a {@link Mono} triggering the {@link #shutdown()} when subscribed to.
+	 * @return a {@link Flowable} triggering the {@link #shutdown()} when subscribed to.
 	 */
-	public static Mono<Void> shutdownLater() {
-		return Mono.defer(() -> {
+	public static Flowable<Void> shutdownLater() {
+		return Flowable.defer(() -> {
 			HttpResources resources = httpResources.getAndSet(null);
 			if (resources != null) {
 				return resources._disposeLater();
 			}
-			return Mono.empty();
+			return Flowable.empty();
 		});
 	}
 

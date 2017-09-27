@@ -63,7 +63,7 @@ import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
-import reactor.ipc.netty.FutureMono;
+import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -353,7 +353,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 	public Mono<Void> send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage request = newFullEmptyBodyMessage();
-			return FutureMono.deferFuture(() -> channel().writeAndFlush(request));
+			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(request)));
 		}
 		else {
 			return Mono.empty();
@@ -685,7 +685,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			HttpClientWSOperations ops = new HttpClientWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				Mono<Void> handshake = FutureMono.from(ops.handshakerResult)
+				Mono<Void> handshake = Mono.fromDirect(FutureFlowable.from(ops.handshakerResult))
 				                                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(
 						                                 ops,
 						                                 ops))));
@@ -699,7 +699,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			HttpClientWSOperations ops =
 					(HttpClientWSOperations) get(channel());
 			if(ops != null) {
-				Mono<Void> handshake = FutureMono.from(ops.handshakerResult);
+				Mono<Void> handshake = Mono.fromDirect(FutureFlowable.from(ops.handshakerResult));
 
 				if (websocketHandler != noopHandler()) {
 					handshake =
@@ -807,7 +807,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 					      .writeAndFlush(encoder);
 				}
 				else {
-					FutureMono.from(f)
+					Mono.fromDirect(FutureFlowable.from(f))
 					          .cast(Long.class)
 					          .switchIfEmpty(Mono.just(encoder.length()))
 					          .flux()

@@ -24,6 +24,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
+import io.reactivex.Flowable;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
@@ -52,8 +53,8 @@ public class HttpResourcesTest {
 			}
 
 			@Override
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> loopDisposed.set(true));
+			public Flowable<Void> disposeLater() {
+				return Flowable.<Void>empty().doOnComplete(() -> loopDisposed.set(true));
 			}
 
 			@Override
@@ -70,8 +71,8 @@ public class HttpResourcesTest {
 				return null;
 			}
 
-			public Mono<Void> disposeLater() {
-				return Mono.<Void>empty().doOnSuccess(c -> poolDisposed.set(true));
+			public Flowable<Void> disposeLater() {
+				return Flowable.<Void>empty().doOnComplete(() -> poolDisposed.set(true));
 			}
 
 			@Override
@@ -91,7 +92,7 @@ public class HttpResourcesTest {
 		assertThat(testResources.isDisposed()).isFalse();
 
 		testResources.disposeLater()
-		             .doOnSuccess(c -> assertThat(testResources.isDisposed()).isTrue())
+		             .doOnComplete(() -> assertThat(testResources.isDisposed()).isTrue())
 		             .subscribe();
 		//not immediately disposed when subscribing
 		assertThat(testResources.isDisposed()).as("immediate status on disposeLater subscribe").isFalse();
@@ -108,7 +109,7 @@ public class HttpResourcesTest {
 			HttpResources.shutdownLater();
 			assertThat(newHttpResources.isDisposed()).isFalse();
 
-			HttpResources.shutdownLater().block();
+			HttpResources.shutdownLater().ignoreElements().blockingAwait();
 			assertThat(newHttpResources.isDisposed()).as("shutdownLater completion").isTrue();
 
 			assertThat(HttpResources.httpResources.get()).isNull();

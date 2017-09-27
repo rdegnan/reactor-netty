@@ -63,7 +63,7 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 	public static ByteBufFlowable fromInbound(Publisher<?> source,
 																						ByteBufAllocator allocator) {
 		Objects.requireNonNull(allocator, "allocator");
-		return new ByteBufFlowable(Flowable.unsafeCreate(source)
+		return new ByteBufFlowable(Flowable.fromPublisher(source)
 		                           .map(bytebufExtractor), allocator);
 	}
 

@@ -17,6 +17,7 @@ package reactor.ipc.netty.resources;
 
 import java.time.Duration;
 
+import io.reactivex.Flowable;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -30,7 +31,7 @@ public class DefaultLoopResourcesTest {
 		DefaultLoopResources loopResources = new DefaultLoopResources(
 				"test", 0, false);
 
-		Mono<Void> disposer = loopResources.disposeLater();
+		Flowable<Void> disposer = loopResources.disposeLater();
 		assertThat(loopResources.isDisposed()).isFalse();
 
 		disposer.subscribe();

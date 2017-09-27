@@ -28,11 +28,11 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import reactor.core.CoreSubscriber;
 import reactor.core.publisher.DirectProcessor;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Operators;
 import reactor.ipc.netty.NettyConnector;
@@ -42,7 +42,6 @@ import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
 import reactor.util.Logger;
 import reactor.util.Loggers;
-import reactor.util.context.Context;
 
 /**
  * A bridge between an immutable {@link Channel} and {@link NettyInbound} /
@@ -53,7 +52,7 @@ import reactor.util.context.Context;
  * @since 0.6
  */
 public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends NettyOutbound>
-		implements NettyInbound, NettyOutbound, NettyContext, CoreSubscriber<Void> {
+		implements NettyInbound, NettyOutbound, NettyContext, Subscriber<Void> {
 
 	/**
 	 * Create a new {@link ChannelOperations} attached to the {@link Channel} attribute
@@ -122,7 +121,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	final BiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>>
 			                    handler;
 	final Channel               channel;
-	final FluxReceive           inbound;
+	final FlowableReceive inbound;
 	final DirectProcessor<Void> onInactive;
 	final ContextHandler<?>     context;
 	@SuppressWarnings("unchecked")
@@ -144,7 +143,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 		this.handler = Objects.requireNonNull(handler, "handler");
 		this.channel = Objects.requireNonNull(channel, "channel");
 		this.context = Objects.requireNonNull(context, "context");
-		this.inbound = new FluxReceive(this);
+		this.inbound = new FlowableReceive(this);
 		this.onInactive = processor;
 		Mono.fromDirect(context.onCloseOrRelease(channel))
 		    .subscribe(onInactive);
@@ -235,7 +234,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	}
 
 	@Override
-	public Flux<?> receiveObject() {
+	public Flowable<?> receiveObject() {
 		return inbound;
 	}
 
@@ -457,11 +456,6 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 		                 .replace("Operations", "");
 	}
 
-	@Override
-	public Context currentContext() {
-		return context.sink.currentContext();
-	}
-
 	/**
 	 * A {@link ChannelOperations} factory
 	 */
@@ -485,7 +479,7 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	 */
 	protected static final AttributeKey<ChannelOperations> OPERATIONS_KEY = AttributeKey.newInstance("nettyOperations");
 	static final Logger     log  = Loggers.getLogger(ChannelOperations.class);
-	static final BiFunction PING = (i, o) -> Flux.empty();
+	static final BiFunction PING = (i, o) -> Flowable.empty();
 
 	static final AtomicReferenceFieldUpdater<ChannelOperations, Subscription>
 			OUTBOUND_CLOSE = AtomicReferenceFieldUpdater.newUpdater(ChannelOperations.class,

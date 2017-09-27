@@ -24,6 +24,7 @@ import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import io.reactivex.Flowable;
 import org.junit.Before;
 import org.junit.Test;
 import reactor.core.publisher.Mono;
@@ -80,7 +81,7 @@ public class DefaultPoolResourcesTest {
 				InetSocketAddress.createUnresolved("localhost", 80),
 				pool);
 
-		Mono<Void> disposer = poolResources.disposeLater();
+		Flowable<Void> disposer = poolResources.disposeLater();
 		assertThat(closed.get()).as("pool closed by disposeLater()").isEqualTo(0);
 
 		disposer.subscribe();
@@ -104,7 +105,7 @@ public class DefaultPoolResourcesTest {
 		poolResources.dispose();
 		assertThat(closed.get()).as("pool closed by dispose()").isEqualTo(1);
 
-		Mono<Void> disposer = poolResources.disposeLater();
+		Flowable<Void> disposer = poolResources.disposeLater();
 		disposer.subscribe();
 		poolResources.disposeLater().subscribe();
 		poolResources.dispose();

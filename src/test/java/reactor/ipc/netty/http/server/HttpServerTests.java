@@ -283,7 +283,7 @@ public class HttpServerTests {
 
 			         in.receiveObject()
 			           .ofType(DefaultHttpContent.class)
-			           .as(ByteBufFlowable::fromInbound)
+			           .to(ByteBufFlowable::fromInbound)
 			           .asString()
 			           .map(Integer::parseInt)
 			           .subscribe(d -> {

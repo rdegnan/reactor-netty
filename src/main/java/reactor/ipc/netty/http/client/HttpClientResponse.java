@@ -22,6 +22,7 @@ import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -88,7 +89,7 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	 *
 	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
 	 */
-	default Flux<HttpContent> receiveContent(){
+	default Flowable<HttpContent> receiveContent(){
 		return receiveObject().ofType(HttpContent.class);
 	}
 

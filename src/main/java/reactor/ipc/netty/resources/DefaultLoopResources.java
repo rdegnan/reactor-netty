@@ -24,8 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
-import reactor.core.publisher.Mono;
-import reactor.ipc.netty.FutureMono;
+import io.reactivex.Flowable;
+import reactor.ipc.netty.FutureFlowable;
 
 /**
  * An adapted global eventLoop handler.
@@ -92,8 +92,9 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 	}
 
 	@Override
-	public Mono<Void> disposeLater() {
-		return Mono.defer(() -> {
+	@SuppressWarnings("unchecked")
+	public Flowable<Void> disposeLater() {
+		return Flowable.defer(() -> {
 			EventLoopGroup cacheNativeClientGroup = cacheNativeClientLoops.get();
 			EventLoopGroup cacheNativeSelectGroup = cacheNativeSelectLoops.get();
 			EventLoopGroup cacheNativeServerGroup = cacheNativeServerLoops.get();
@@ -113,23 +114,23 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 				}
 			}
 
-			Mono<?> clMono = FutureMono.from((Future) clientLoops.terminationFuture());
-			Mono<?> sslMono = FutureMono.from((Future)serverSelectLoops.terminationFuture());
-			Mono<?> slMono = FutureMono.from((Future)serverLoops.terminationFuture());
-			Mono<?> cnclMono = Mono.empty();
+			Flowable<Void> cl = FutureFlowable.from((Future) clientLoops.terminationFuture());
+			Flowable<Void> ssl = FutureFlowable.from((Future)serverSelectLoops.terminationFuture());
+			Flowable<Void> sl = FutureFlowable.from((Future)serverLoops.terminationFuture());
+			Flowable<Void> cncl = Flowable.empty();
 			if(cacheNativeClientGroup != null){
-				cnclMono = FutureMono.from((Future) cacheNativeClientGroup.terminationFuture());
+				cncl = FutureFlowable.from((Future) cacheNativeClientGroup.terminationFuture());
 			}
-			Mono<?> cnslMono = Mono.empty();
+			Flowable<Void> cnsl = Flowable.empty();
 			if(cacheNativeSelectGroup != null){
-				cnslMono = FutureMono.from((Future) cacheNativeSelectGroup.terminationFuture());
+				cnsl = FutureFlowable.from((Future) cacheNativeSelectGroup.terminationFuture());
 			}
-			Mono<?> cnsrvlMono = Mono.empty();
+			Flowable<Void> cnsrvl = Flowable.empty();
 			if(cacheNativeServerGroup != null){
-				cnsrvlMono = FutureMono.from((Future) cacheNativeServerGroup.terminationFuture());
+				cnsrvl = FutureFlowable.from((Future) cacheNativeServerGroup.terminationFuture());
 			}
 
-			return Mono.zip(clMono, sslMono, slMono, cnclMono, cnslMono, cnsrvlMono).then();
+			return Flowable.mergeArray(cl, ssl, sl, cncl, cnsl, cnsrvl);
 		});
 	}
 
