@@ -15,13 +15,12 @@
  */
 package reactor.ipc.netty.http.server;
 
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.cookie.Cookie;
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
@@ -30,6 +29,8 @@ import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.http.HttpInfos;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
+
+import java.util.function.Consumer;
 
 /**
  *
@@ -127,10 +128,10 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http response.
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Flowable} successful on committed response
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send(){
+	default Flowable<Void> send(){
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -144,9 +145,9 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	/**
 	 * Send 404 status {@link HttpResponseStatus#NOT_FOUND}.
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Flowable} successful on flush confirmation
 	 */
-	Mono<Void> sendNotFound();
+	Flowable<Void> sendNotFound();
 
 	/**
 	 * Send redirect status {@link HttpResponseStatus#FOUND} along with a location
@@ -154,31 +155,31 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 	 *
 	 * @param location the location to redirect to
 	 *
-	 * @return a {@link Mono} successful on flush confirmation
+	 * @return a {@link Flowable} successful on flush confirmation
 	 */
-	Mono<Void> sendRedirect(String location);
+	Flowable<Void> sendRedirect(String location);
 
 	/**
-	 * Upgrade connection to Websocket. Mono and Callback are invoked on handshake
-	 * success, otherwise the returned {@link Mono} fails.
+	 * Upgrade connection to Websocket. Flowable and Callback are invoked on handshake
+	 * success, otherwise the returned {@link Flowable} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Flowable} completing when upgrade is confirmed
 	 */
-	default Mono<Void> sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Flowable<Void> sendWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return sendWebsocket(uri(), websocketHandler);
 	}
 
 	/**
-	 * Upgrade connection to Websocket with optional subprotocol(s). Mono and Callback
-	 * are invoked on handshake success, otherwise the returned {@link Mono} fails.
+	 * Upgrade connection to Websocket with optional subprotocol(s). Flowable and Callback
+	 * are invoked on handshake success, otherwise the returned {@link Flowable} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Flowable} completing when upgrade is confirmed
 	 */
-	Mono<Void> sendWebsocket(String protocols,
+	Flowable<Void> sendWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
 
 

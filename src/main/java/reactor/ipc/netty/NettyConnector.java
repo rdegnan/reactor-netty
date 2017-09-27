@@ -16,10 +16,10 @@
 
 package reactor.ipc.netty;
 
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;

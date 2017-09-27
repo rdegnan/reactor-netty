@@ -16,17 +16,14 @@
 
 package reactor.ipc.netty.http.client;
 
-import java.util.function.BiFunction;
-
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.http.HttpInfos;
@@ -86,9 +83,9 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 	}
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
 	default Flowable<HttpContent> receiveContent(){
 		return receiveObject().ofType(HttpContent.class);
@@ -105,28 +102,28 @@ public interface HttpClientResponse extends NettyInbound, HttpInfos, NettyContex
 
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
-	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * closing {@link Publisher}. Flowable and Callback are invoked on handshake success,
+	 * otherwise the returned {@link Flowable} fails.
 	 *
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Flowable} completing when upgrade is confirmed
 	 */
-	default Mono<Void> receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
+	default Flowable<Void> receiveWebsocket(BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return receiveWebsocket(null, websocketHandler);
 	}
 
 	/**
 	 * Duplex conversion to {@link WebsocketInbound}, {@link WebsocketOutbound} and a
-	 * closing {@link Publisher}. Mono and Callback are invoked on handshake success,
-	 * otherwise the returned {@link Mono} fails.
+	 * closing {@link Publisher}. Flowable and Callback are invoked on handshake success,
+	 * otherwise the returned {@link Flowable} fails.
 	 *
 	 * @param protocols optional sub-protocol
 	 * @param websocketHandler the in/out handler for ws transport
 	 *
-	 * @return a {@link Mono} completing when upgrade is confirmed
+	 * @return a {@link Flowable} completing when upgrade is confirmed
 	 */
-	Mono<Void> receiveWebsocket(String protocols,
+	Flowable<Void> receiveWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler);
 
 	/**

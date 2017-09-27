@@ -21,7 +21,6 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-import java.util.function.BiFunction;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
@@ -40,9 +39,10 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -123,12 +123,12 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 			else {
 				message = outboundHttpMessage();
 			}
-			return then(Mono.fromDirect(FutureFlowable.deferFuture(() -> {
+			return then(FutureFlowable.deferFuture(() -> {
 				if(!channel().isActive()){
 					throw new AbortedException();
 				}
 				return channel().writeAndFlush(message);
-			})));
+			}));
 		}
 		else {
 			return this;
@@ -136,7 +136,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	}
 
 	@Override
-	public Mono<Void> then() {
+	public Flowable<Void> then() {
 		if (markSentHeaders()) {
 			handleOutboundWithNoContent();
 
@@ -150,10 +150,10 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 				markPersistent(false);
 			}
 
-			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage())));
+			return FutureFlowable.deferFuture(() -> channel().writeAndFlush(outboundHttpMessage()));
 		}
 		else {
-			return Mono.empty();
+			return Flowable.empty();
 		}
 	}
 

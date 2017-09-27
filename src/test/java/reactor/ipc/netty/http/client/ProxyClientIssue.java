@@ -142,9 +142,10 @@ public class ProxyClientIssue {
 		                         .toString(),
 				                 req -> req.headers(filterRequestHeaders(request.requestHeaders())))
 
-		                 .flatMap(targetResponse -> response.headers(filterResponseHeaders(targetResponse.responseHeaders()))
+		                 .flatMapMany(targetResponse -> response.headers(filterResponseHeaders(targetResponse.responseHeaders()))
 		                                                    .send(targetResponse.receive().retain())
-		                                                    .then());
+		                                                    .then())
+		                 .then();
 	}
 
 	private HttpHeaders filterRequestHeaders(HttpHeaders httpHeaders) {

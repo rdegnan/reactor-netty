@@ -26,9 +26,8 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
+import io.reactivex.Flowable;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.NettyPipeline;
@@ -169,11 +168,11 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	/**
 	 * Send headers and empty content thus delimiting a full empty body http request
 	 *
-	 * @return a {@link Mono} successful on committed response
+	 * @return a {@link Flowable} successful on committed response
 	 *
 	 * @see #send(Publisher)
 	 */
-	default Mono<Void> send() {
+	default Flowable<Void> send() {
 		return sendObject(Unpooled.EMPTY_BUFFER).then();
 	}
 
@@ -184,9 +183,9 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 	 *
 	 * @param formCallback called when form generator is created
 	 *
-	 * @return a {@link Flux} of latest in-flight or uploaded bytes,
+	 * @return a {@link Flowable} of latest in-flight or uploaded bytes,
 	 */
-	Flux<Long> sendForm(Consumer<Form> formCallback);
+	Flowable<Long> sendForm(Consumer<Form> formCallback);
 
 	/**
 	 * Send the headers.

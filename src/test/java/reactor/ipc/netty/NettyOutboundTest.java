@@ -30,6 +30,7 @@ import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.SSLException;
 
@@ -121,7 +122,7 @@ public class NettyOutboundTest {
 		channel.writeOneOutbound(1);
 
 		outbound.sendFile(Paths.get(getClass().getResource("/largeFile.txt").toURI()))
-		        .then().block();
+		        .then().ignoreElements().blockingAwait();
 
 		assertThat(channel.inboundMessages()).isEmpty();
 		assertThat(channel.outboundMessages()).hasSize(2);
@@ -189,7 +190,8 @@ public class NettyOutboundTest {
 		try{
 			outbound.sendFile(Paths.get(getClass().getResource("/largeFile.txt").toURI()))
 			        .then()
-			        .block(Duration.ofSeconds(1)); //TODO investigate why this hangs
+			        .ignoreElements()
+			        .blockingAwait(1, TimeUnit.SECONDS); //TODO investigate why this hangs
 		} catch (IllegalStateException e) {
 			if (!"Timeout on blocking read for 1000 MILLISECONDS".equals(e.getMessage()))
 				throw e;
@@ -252,7 +254,7 @@ public class NettyOutboundTest {
 
 		channel.writeOneOutbound(1);
 		outbound.sendFileChunked(path, 0, Files.size(path))
-		        .then().block();
+		        .then().ignoreElements().blockingAwait();
 
 		assertThat(channel.inboundMessages()).isEmpty();
 		assertThat(messageWritten).containsExactly(Integer.class, ChunkedNioFile.class);

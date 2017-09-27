@@ -105,8 +105,8 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * @return a never completing {@link Flowable} after this {@link NettyOutbound#then()} has
 	 * completed.
 	 */
-	default Mono<Void> neverComplete() {
-		return then(Mono.never()).then();
+	default Flowable<Void> neverComplete() {
+		return then(Flowable.never()).then();
 	}
 
 	/**
@@ -307,8 +307,8 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * any error during write
 	 */
 	default NettyOutbound sendObject(Object msg) {
-		return then(Mono.fromDirect(FutureFlowable.deferFuture(() -> context().channel()
-		                                                  .writeAndFlush(msg))));
+		return then(FutureFlowable.deferFuture(() -> context().channel()
+		                                                  .writeAndFlush(msg)));
 	}
 
 	/**
@@ -356,16 +356,16 @@ public interface NettyOutbound extends Publisher<Void> {
 	}
 
 	/**
-	 * Obtain a {@link Mono} of pending outbound(s) write completion.
+	 * Obtain a {@link Flowable} of pending outbound(s) write completion.
 	 *
-	 * @return a {@link Mono} of pending outbound(s) write completion
+	 * @return a {@link Flowable} of pending outbound(s) write completion
 	 */
-	default Mono<Void> then() {
-		return Mono.empty();
+	default Flowable<Void> then() {
+		return Flowable.empty();
 	}
 
 	/**
-	 * Append a {@link Publisher} task such as a Mono and return a new
+	 * Append a {@link Publisher} task such as a Flowable and return a new
 	 * {@link NettyOutbound} to sequence further send.
 	 *
 	 * @param other the {@link Publisher} to subscribe to when this pending outbound

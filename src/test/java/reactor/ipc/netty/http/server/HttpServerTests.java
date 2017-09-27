@@ -212,7 +212,7 @@ public class HttpServerTests {
 		// start a first server with a handler that answers HTTP 200 OK
 		NettyContext context = HttpServer.create(8080)
 		                                 .newHandler((req, resp) -> resp.status(200)
-		                                                                .send().log())
+		                                                                .send())
 		                                 .block();
 
 		HttpClientResponse response = HttpClient.create(8080).get("/").block();

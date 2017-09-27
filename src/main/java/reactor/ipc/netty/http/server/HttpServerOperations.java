@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -49,9 +48,8 @@ import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
 import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
@@ -266,13 +264,13 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> send() {
+	public Flowable<Void> send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage response = newFullEmptyBodyMessage();
-			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(response)));
+			return FutureFlowable.deferFuture(() -> channel().writeAndFlush(response));
 		}
 		else {
-			return Mono.empty();
+			return Flowable.empty();
 		}
 	}
 
@@ -290,13 +288,13 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> sendNotFound() {
+	public Flowable<Void> sendNotFound() {
 		return this.status(HttpResponseStatus.NOT_FOUND)
 		           .send();
 	}
 
 	@Override
-	public Mono<Void> sendRedirect(String location) {
+	public Flowable<Void> sendRedirect(String location) {
 		Objects.requireNonNull(location, "location");
 		return this.status(HttpResponseStatus.FOUND)
 		           .header(HttpHeaderNames.LOCATION, location)
@@ -330,7 +328,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public Mono<Void> sendWebsocket(String protocols,
+	public Flowable<Void> sendWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		return withWebsocketSupport(uri(), protocols, websocketHandler);
 	}
@@ -449,7 +447,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		return nettyResponse;
 	}
 
-	final Mono<Void> withWebsocketSupport(String url,
+	final Flowable<Void> withWebsocketSupport(String url,
 			String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		Objects.requireNonNull(websocketHandler, "websocketHandler");
@@ -457,15 +455,17 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 			HttpServerWSOperations ops = new HttpServerWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				return Mono.fromDirect(FutureFlowable.from(ops.handshakerResult))
-				                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(ops, ops))))
-				                 .doAfterSuccessOrError(ops);
+				return FutureFlowable.from(ops.handshakerResult)
+				                 .ignoreElements()
+				                 .andThen(Flowable.defer(() -> websocketHandler.apply(ops, ops)))
+				                 .doOnError(ops)
+				                 .doOnComplete(() -> ops.accept(null));
 			}
 		}
 		else {
 			log.error("Cannot enable websocket if headers have already been sent");
 		}
-		return Mono.error(new IllegalStateException("Failed to upgrade to websocket"));
+		return Flowable.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
 
 	static final Logger log = Loggers.getLogger(HttpServerOperations.class);

@@ -198,7 +198,7 @@ public class WebsocketTest {
 		HttpClient.create(httpServer.address()
 		                            .getPort())
 		          .ws("/test")
-		          .flatMap(in -> in.receiveWebsocket((i, o) -> o.options(opt -> opt.flushOnEach())
+		          .flatMapMany(in -> in.receiveWebsocket((i, o) -> o.options(opt -> opt.flushOnEach())
 		                                                     .sendString(i.receive()
 		                                                                  .asString()
 		                                                                  .subscribeWith(
@@ -358,13 +358,14 @@ public class WebsocketTest {
 		HttpClient.create(httpServer.address()
 		                            .getPort())
 		          .ws("/test", "proto1,proto2")
-		          .flatMap(in -> {
+		          .flatMapMany(in -> {
 			          clientSelectedProtocolWhenSimplyUpgrading.set(in.receiveWebsocket().selectedSubprotocol());
 			          return in.receiveWebsocket((i, o) -> {
 				          clientSelectedProtocol.set(o.selectedSubprotocol());
 				          return o.sendString(Mono.just("HELLO" + o.selectedSubprotocol()));
 			          });
 		          })
+							.then()
 		          .block(Duration.ofSeconds(30));
 
 		Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));

@@ -22,8 +22,8 @@ import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.time.Duration;
-import java.util.function.BiFunction;
 
+import io.reactivex.functions.BiFunction;
 import org.apache.http.HttpException;
 import org.junit.After;
 import org.junit.Before;

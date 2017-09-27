@@ -23,10 +23,11 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
@@ -128,7 +129,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		@Override
 		public Publisher<Void> apply(HttpServerRequest request,
 				HttpServerResponse response) {
-			return handler.apply(request.paramsResolver(resolver), response);
+			return Flowable.defer(() -> handler.apply(request.paramsResolver(resolver), response));
 		}
 
 		@Override

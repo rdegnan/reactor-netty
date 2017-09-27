@@ -17,7 +17,6 @@ package reactor.ipc.netty;
 
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
@@ -29,8 +28,10 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.BiConsumer;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 
@@ -202,7 +203,7 @@ final class ReactorNetty {
 
 	/**
 	 * Determines if user-provided handlers registered on the given channel should
-	 * automatically be registered for removal through a {@link NettyContext#onClose(Runnable)}
+	 * automatically be registered for removal through a {@link NettyContext#onClose(Action)}
 	 * (or similar on close hook). This depends on the
 	 * {@link NettyContext#isPersistent(Channel)} ()}
 	 * attribute.
@@ -239,18 +240,18 @@ final class ReactorNetty {
 	static final class OutboundThen implements NettyOutbound {
 
 		final NettyContext sourceContext;
-		final Mono<Void>   thenMono;
+		final Flowable<Void> thenFlowable;
 
 		OutboundThen(NettyOutbound source, Publisher<Void> thenPublisher) {
 			this.sourceContext = source.context();
 
-			Mono<Void> parentMono = source.then();
+			Flowable<Void> parentFlowable = source.then();
 
-			if (parentMono == Mono.<Void>empty()) {
-				this.thenMono = Mono.from(thenPublisher);
+			if (parentFlowable == Flowable.<Void>empty()) {
+				this.thenFlowable = Flowable.fromPublisher(thenPublisher);
 			}
 			else {
-				this.thenMono = parentMono.thenEmpty(thenPublisher);
+				this.thenFlowable = parentFlowable.ignoreElements().andThen(thenPublisher);
 			}
 		}
 
@@ -260,8 +261,8 @@ final class ReactorNetty {
 		}
 
 		@Override
-		public Mono<Void> then() {
-			return thenMono;
+		public Flowable<Void> then() {
+			return thenFlowable;
 		}
 	}
 

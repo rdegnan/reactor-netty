@@ -18,7 +18,6 @@ package reactor.ipc.netty.tcp;
 
 import java.net.SocketAddress;
 import java.util.Objects;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -26,6 +25,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoSink;

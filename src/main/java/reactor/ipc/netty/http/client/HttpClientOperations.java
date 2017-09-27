@@ -23,7 +23,6 @@ import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import io.netty.buffer.ByteBuf;
@@ -57,13 +56,13 @@ import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.Action;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.subscriptions.EmptySubscription;
 import org.reactivestreams.Publisher;
-import reactor.core.CoreSubscriber;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.Operators;
+import org.reactivestreams.Subscriber;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
@@ -351,13 +350,13 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 	}
 
 	@Override
-	public Mono<Void> send() {
+	public Flowable<Void> send() {
 		if (markSentHeaderAndBody()) {
 			HttpMessage request = newFullEmptyBodyMessage();
-			return Mono.fromDirect(FutureFlowable.deferFuture(() -> channel().writeAndFlush(request)));
+			return FutureFlowable.deferFuture(() -> channel().writeAndFlush(request));
 		}
 		else {
-			return Mono.empty();
+			return Flowable.empty();
 		}
 	}
 
@@ -365,10 +364,10 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 	public NettyOutbound send(Publisher<? extends ByteBuf> source) {
 		if (method() == HttpMethod.GET || method() == HttpMethod.HEAD) {
 			ByteBufAllocator alloc = channel().alloc();
-			return then(Flux.from(source)
+			return then(Flowable.fromPublisher(source)
 			    .doOnNext(ByteBuf::retain)
 			    .collect(alloc::buffer, ByteBuf::writeBytes)
-			    .flatMapMany(agg -> {
+			    .flatMapPublisher(agg -> {
 				    if (!hasSentHeaders() && !HttpUtil.isTransferEncodingChunked(
 						    outboundHttpMessage()) && !HttpUtil.isContentLengthSet(
 						    outboundHttpMessage())) {
@@ -376,15 +375,15 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 					                         .setInt(HttpHeaderNames.CONTENT_LENGTH,
 							                         agg.readableBytes());
 				    }
-				    return send(Mono.just(agg)).then();
+				    return send(Flowable.just(agg)).then();
 			    }));
 		}
 		return super.send(source);
 	}
 
 	@Override
-	public Flux<Long> sendForm(Consumer<Form> formCallback) {
-		return new FluxSendForm(this, formCallback);
+	public Flowable<Long> sendForm(Consumer<Form> formCallback) {
+		return new FlowableSendForm(this, formCallback);
 	}
 
 	@Override
@@ -394,7 +393,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 	@Override
 	public WebsocketOutbound sendWebsocket(String subprotocols) {
-		Mono<Void> m = withWebsocketSupport(websocketUri(), subprotocols, noopHandler());
+		Flowable<Void> m = withWebsocketSupport(websocketUri(), subprotocols, noopHandler());
 
 		return new WebsocketOutbound() {
 
@@ -409,14 +408,14 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			}
 
 			@Override
-			public Mono<Void> then() {
+			public Flowable<Void> then() {
 				return m;
 			}
 		};
 	}
 
 	@Override
-	public Mono<Void> receiveWebsocket(String protocols,
+	public Flowable<Void> receiveWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 		Objects.requireNonNull(websocketHandler, "websocketHandler");
 		return withWebsocketSupport(websocketUri(), protocols, websocketHandler);
@@ -438,7 +437,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 		}
 		catch (URISyntaxException e) {
-			throw Exceptions.bubble(e);
+			throw Exceptions.propagate(e);
 		}
 		return uri;
 	}
@@ -675,7 +674,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		}
 	}
 
-	final Mono<Void> withWebsocketSupport(URI url,
+	final Flowable<Void> withWebsocketSupport(URI url,
 			String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
 
@@ -686,12 +685,15 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			HttpClientWSOperations ops = new HttpClientWSOperations(url, protocols, this);
 
 			if (replace(ops)) {
-				Mono<Void> handshake = Mono.fromDirect(FutureFlowable.from(ops.handshakerResult))
-				                                 .then(Mono.defer(() -> Mono.from(websocketHandler.apply(
+				Flowable<Void> handshake = FutureFlowable.from(ops.handshakerResult)
+										                     .ignoreElements()
+				                                 .andThen(Flowable.defer(() -> websocketHandler.apply(
 						                                 ops,
-						                                 ops))));
+						                                 ops)));
 				if (websocketHandler != noopHandler()) {
-					handshake = handshake.doAfterSuccessOrError(ops);
+					handshake = handshake
+							.doOnError(ops)
+							.doOnComplete(() -> ops.accept(null));
 				}
 				return handshake;
 			}
@@ -700,12 +702,13 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			HttpClientWSOperations ops =
 					(HttpClientWSOperations) get(channel());
 			if(ops != null) {
-				Mono<Void> handshake = Mono.fromDirect(FutureFlowable.from(ops.handshakerResult));
+				Flowable<Void> handshake = FutureFlowable.from(ops.handshakerResult);
 
 				if (websocketHandler != noopHandler()) {
 					handshake =
-							handshake.then(Mono.defer(() -> Mono.from(websocketHandler.apply(ops, ops)))
-							         .doAfterSuccessOrError(ops));
+							handshake.ignoreElements().andThen(Flowable.defer(() -> websocketHandler.apply(ops, ops)))
+									.doOnError(ops)
+									.doOnComplete(() -> ops.accept(null));
 				}
 				return handshake;
 			}
@@ -713,7 +716,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		else {
 			log.error("Cannot enable websocket if headers have already been sent");
 		}
-		return Mono.error(new IllegalStateException("Failed to upgrade to websocket"));
+		return Flowable.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
 
 	static final class ResponseState {
@@ -729,21 +732,21 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		}
 	}
 
-	static final class FluxSendForm extends Flux<Long> {
+	static final class FlowableSendForm extends Flowable<Long> {
 
 		static final HttpDataFactory DEFAULT_FACTORY = new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE);
 
 		final HttpClientOperations parent;
 		final Consumer<Form>       formCallback;
 
-		FluxSendForm(HttpClientOperations parent,
-				Consumer<Form> formCallback) {
+		FlowableSendForm(HttpClientOperations parent,
+										 Consumer<Form> formCallback) {
 			this.parent = parent;
 			this.formCallback = formCallback;
 		}
 
 		@Override
-		public void subscribe(CoreSubscriber<? super Long> s) {
+		public void subscribeActual(Subscriber<? super Long> s) {
 			if (parent.channel()
 			          .eventLoop()
 			          .inEventLoop()) {
@@ -756,10 +759,10 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			}
 		}
 
-		void _subscribe(CoreSubscriber<? super Long> s) {
+		void _subscribe(Subscriber<? super Long> s) {
 			if (!parent.markSentHeaders()) {
-				Operators.error(s,
-						new IllegalStateException("headers have already " + "been sent"));
+				EmptySubscription.error(
+						new IllegalStateException("headers have already " + "been sent"), s);
 				return;
 			}
 
@@ -795,7 +798,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 				ChannelFuture f = parent.channel()
 				                        .writeAndFlush(r);
 
-				Flux<Long> tail = encoder.progressFlux.onBackpressureLatest();
+				Flowable<Long> tail = encoder.progressFlowable.onBackpressureLatest();
 
 				if (encoder.cleanOnTerminate) {
 					tail = tail.doOnCancel(encoder)
@@ -808,10 +811,9 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 					      .writeAndFlush(encoder);
 				}
 				else {
-					Mono.fromDirect(FutureFlowable.from(f))
+					FutureFlowable.from(f)
 					          .cast(Long.class)
-					          .switchIfEmpty(Mono.just(encoder.length()))
-					          .flux()
+					          .switchIfEmpty(Flowable.just(encoder.length()))
 					          .subscribe(s);
 				}
 
@@ -820,7 +822,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			catch (Throwable e) {
 				Exceptions.throwIfFatal(e);
 				df.cleanRequestHttpData(parent.nettyRequest);
-				Operators.error(s, Exceptions.unwrap(e));
+				EmptySubscription.error(e, s);
 			}
 		}
 	}

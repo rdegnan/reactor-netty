@@ -200,7 +200,7 @@ public class HttpClientTest {
 
 				                                      return resp.sendObject(Unpooled.EMPTY_BUFFER)
 				                                                 .then()
-				                                                 .doOnSuccess(x -> req.context()
+				                                                 .doOnComplete(() -> req.context()
 				                                                                      .channel()
 				                                                                      .config()
 				                                                                      .setAutoRead(
@@ -291,8 +291,8 @@ public class HttpClientTest {
 				                                                .attr("att1",
 						                                                     "attr2")
 				                                                .file("test2", f))
-				                          .log()
-				                          .then())
+																	.ignoreElements()
+																	.toFlowable())
 		                    .flatMap(r -> Mono.just(r.status()
 		                                          .code()))
 		                    .block(Duration.ofSeconds(30));

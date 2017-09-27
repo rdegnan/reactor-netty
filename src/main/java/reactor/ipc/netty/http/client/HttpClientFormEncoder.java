@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.handler.codec.EncoderException;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.DiskAttribute;
@@ -36,8 +35,9 @@ import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import io.netty.handler.codec.http.multipart.MemoryFileUpload;
 import io.netty.handler.stream.ChunkedInput;
-import reactor.core.Exceptions;
-import reactor.core.publisher.DirectProcessor;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Action;
+import io.reactivex.processors.PublishProcessor;
 
 /**
  * Modified {@link io.netty.handler.codec.http.multipart.HttpPostRequestEncoder} for
@@ -46,9 +46,9 @@ import reactor.core.publisher.DirectProcessor;
  * This encoder will help to encode Request for a FORM as POST.
  */
 final class HttpClientFormEncoder extends HttpPostRequestEncoder
-		implements ChunkedInput<HttpContent>, Runnable, HttpClientRequest.Form {
+		implements ChunkedInput<HttpContent>, Action, HttpClientRequest.Form {
 
-	final DirectProcessor<Long> progressFlux;
+	final PublishProcessor<Long> progressFlowable;
 	final HttpRequest request;
 
 	boolean         needNewEncoder;
@@ -80,7 +80,7 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 		this.request = request;
 		this.isKey = true;
 		this.cleanOnTerminate = true;
-		this.progressFlux = DirectProcessor.create();
+		this.progressFlowable = PublishProcessor.create();
 		this.newMode = encoderMode;
 		this.newFactory = factory;
 		this.newMultipart = multipart;
@@ -90,12 +90,12 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 	public HttpContent readChunk(ByteBufAllocator allocator) throws Exception {
 		HttpContent c = super.readChunk(allocator);
 		if (c == null) {
-			progressFlux.onComplete();
+			progressFlowable.onComplete();
 		}
 		else {
-			progressFlux.onNext(progress());
+			progressFlowable.onNext(progress());
 			if (isEndOfInput()) {
-				progressFlux.onComplete();
+				progressFlowable.onComplete();
 			}
 		}
 		return c;

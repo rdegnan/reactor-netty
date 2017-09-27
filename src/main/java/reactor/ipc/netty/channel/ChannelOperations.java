@@ -19,7 +19,6 @@ package reactor.ipc.netty.channel;
 import java.net.InetSocketAddress;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
@@ -30,6 +29,7 @@ import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.internal.functions.Functions;
 import io.reactivex.internal.subscriptions.SubscriptionHelper;
 import io.reactivex.processors.PublishProcessor;
@@ -360,8 +360,8 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	protected final void applyHandler() {
 //		channel.pipeline()
 //		       .fireUserEventTriggered(NettyPipeline.handlerStartedEvent());
-		Flowable.fromPublisher(handler.apply((INBOUND) this, (OUTBOUND) this))
-		       .subscribe(this);
+		Flowable.defer(() -> handler.apply((INBOUND) this, (OUTBOUND) this))
+				.subscribe(this);
 	}
 
 	/**
