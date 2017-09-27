@@ -39,7 +39,6 @@ import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.channel.data.AbstractFileChunkedStrategy;
 import reactor.ipc.netty.channel.data.FileChunkedStrategy;
 
@@ -228,14 +227,14 @@ public interface NettyOutbound extends Publisher<Void> {
 			return sendFileChunked(file, position, count);
 		}
 
-		return then(Mono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
-				fc -> Mono.fromDirect(FutureFlowable.from(context().channel().writeAndFlush(new DefaultFileRegion(fc, position, count)))),
+		return then(Flowable.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+				fc -> FutureFlowable.from(context().channel().writeAndFlush(new DefaultFileRegion(fc, position, count))),
 				fc -> {
 					try {
 						fc.close();
 					}
 					catch (IOException ioe) {/*IGNORE*/}
-				}));
+				}, false));
 	}
 
 	default NettyOutbound sendFileChunked(Path file, long position, long count) {
@@ -246,14 +245,14 @@ public interface NettyOutbound extends Publisher<Void> {
 			strategy.preparePipeline(context());
 		}
 
-		return then(Mono.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+		return then(Flowable.using(() -> FileChannel.open(file, StandardOpenOption.READ),
 				fc -> {
 						try {
 							ChunkedInput<?> message = strategy.chunkFile(fc);
-							return Mono.fromDirect(FutureFlowable.from(context().channel().writeAndFlush(message)));
+							return FutureFlowable.from(context().channel().writeAndFlush(message));
 						}
 						catch (Exception e) {
-							return Mono.error(e);
+							return Flowable.error(e);
 						}
 				},
 				fc -> {
@@ -264,7 +263,7 @@ public interface NettyOutbound extends Publisher<Void> {
 					finally {
 						strategy.cleanupPipeline(context());
 					}
-				}));
+				}, false));
 	}
 
 	/**
@@ -274,7 +273,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @param dataStreams the dataStream publishing OUT items to write on this channel
 	 *
-	 * @return A {@link Mono} to signal successful sequence write (e.g. after "flush") or
+	 * @return A {@link Flowable} to signal successful sequence write (e.g. after "flush") or
 	 * any error during write
 	 */
 	default NettyOutbound sendGroups(Publisher<? extends Publisher<? extends ByteBuf>> dataStreams) {
@@ -293,8 +292,8 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * error during write
 	 */
 	default NettyOutbound sendObject(Publisher<?> dataStream) {
-		return then(Mono.fromDirect(FutureFlowable.deferFuture(() -> context().channel()
-		                                                  .writeAndFlush(dataStream))));
+		return then(FutureFlowable.deferFuture(() -> context().channel()
+		                                                  .writeAndFlush(dataStream)));
 	}
 
 	/**
@@ -303,7 +302,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	 *
 	 * @param msg the object to publish
 	 *
-	 * @return A {@link Mono} to signal successful sequence write (e.g. after "flush") or
+	 * @return A {@link Flowable} to signal successful sequence write (e.g. after "flush") or
 	 * any error during write
 	 */
 	default NettyOutbound sendObject(Object msg) {

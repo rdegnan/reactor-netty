@@ -17,13 +17,12 @@
 package reactor.ipc.netty.http;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
 import org.junit.Assert;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
@@ -42,16 +41,16 @@ public class HttpErrorTests {
 				                                "/",
 				                                (httpServerRequest, httpServerResponse) -> {
 					                                return httpServerResponse.sendString(
-							                                Mono.error(new IllegalArgumentException()));
+							                                Flowable.error(new IllegalArgumentException()));
 				                                }))
-		                                .block(Duration.ofSeconds(30));
+		                                .blockingSingle();
 
 		HttpClient client = HttpClient.create(opt -> opt.host("localhost")
 		                                                .port(server.address().getPort())
 		                                                .disablePool());
 
 		HttpClientResponse r = client.get("/")
-		                             .block(Duration.ofSeconds(30));
+		                             .blockingSingle();
 
 		List<String> result = r.receive()
 		                    .asString(StandardCharsets.UTF_8)

@@ -26,11 +26,11 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 
+import io.reactivex.Flowable;
+import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -151,7 +151,7 @@ public final class HttpServer
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Mono<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
+	public Flowable<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
 			HttpServerResponse, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(handler, "handler");
 		return server.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) handler);
@@ -161,9 +161,9 @@ public final class HttpServer
 	 * Define routes for the server through the provided {@link HttpServerRoutes} builder.
 	 *
 	 * @param routesBuilder provides a route builder to be mutated in order to define routes.
-	 * @return a new {@link Mono} starting the router on subscribe
+	 * @return a new {@link Flowable} starting the router on subscribe
 	 */
-	public Mono<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
+	public Flowable<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
 			routesBuilder) {
 		Objects.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
@@ -238,7 +238,7 @@ public final class HttpServer
 		@Override
 		protected ContextHandler<Channel> doHandler(
 				BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-				MonoSink<NettyContext> sink) {
+				MaybeEmitter<NettyContext> sink) {
 			return ContextHandler.newServerContext(sink,
 					options,
 					loggingHandler,

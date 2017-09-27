@@ -21,7 +21,6 @@ import java.net.SocketAddress;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -36,11 +35,12 @@ import io.netty.handler.codec.http.HttpRequestEncoder;
 import io.netty.handler.codec.http.HttpResponseDecoder;
 import io.netty.handler.logging.LoggingHandler;
 
+import io.reactivex.Flowable;
+import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -151,10 +151,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on open channel
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> delete(String url,
+	public final Flowable<HttpClientResponse> delete(String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		return request(HttpMethod.DELETE, url, handler);
 	}
@@ -163,10 +163,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * HTTP DELETE the passed URL.
 	 *
 	 * @param url the target remote URL
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> delete(String url) {
+	public final Flowable<HttpClientResponse> delete(String url) {
 		return request(HttpMethod.DELETE, url, null);
 	}
 
@@ -176,10 +176,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on open channel
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> get(String url,
+	public final Flowable<HttpClientResponse> get(String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		return request(HttpMethod.GET, url, handler);
 	}
@@ -188,17 +188,17 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * HTTP GET the passed URL.
 	 *
 	 * @param url the target remote URL
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> get(String url) {
+	public final Flowable<HttpClientResponse> get(String url) {
 		return request(HttpMethod.GET, url, null);
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public Mono<HttpClientResponse> newHandler(BiFunction<? super HttpClientResponse, ? super HttpClientRequest, ? extends Publisher<Void>> ioHandler) {
-		return (Mono<HttpClientResponse>) client.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) ioHandler);
+	public Flowable<HttpClientResponse> newHandler(BiFunction<? super HttpClientResponse, ? super HttpClientRequest, ? extends Publisher<Void>> ioHandler) {
+		return (Flowable<HttpClientResponse>) client.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) ioHandler);
 	}
 
 	/**
@@ -207,10 +207,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on open channel
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> patch(String url,
+	public final Flowable<HttpClientResponse> patch(String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		return request(HttpMethod.PATCH, url, handler);
 	}
@@ -219,10 +219,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * HTTP PATCH the passed URL.
 	 *
 	 * @param url the target remote URL
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> patch(String url) {
+	public final Flowable<HttpClientResponse> patch(String url) {
 		return request(HttpMethod.PATCH, url, null);
 	}
 
@@ -232,10 +232,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on open channel
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> post(String url,
+	public final Flowable<HttpClientResponse> post(String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		return request(HttpMethod.POST, url, handler);
 	}
@@ -246,10 +246,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on open channel
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> put(String url,
+	public final Flowable<HttpClientResponse> put(String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		return request(HttpMethod.PUT, url, handler);
 	}
@@ -262,10 +262,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * @param method the HTTP method to send
 	 * @param url the target remote URL
 	 * @param handler the {@link Function} to invoke on opened TCP connection
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public Mono<HttpClientResponse> request(HttpMethod method,
+	public Flowable<HttpClientResponse> request(HttpMethod method,
 			String url,
 			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 
@@ -273,17 +273,17 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 			throw new IllegalArgumentException("Method && url cannot be both null");
 		}
 
-		return new MonoHttpClientResponse(this, url, method, handler(handler, options));
+		return new FlowableHttpClientResponse(this, url, method, handler(handler, options));
 	}
 
 	/**
 	 * WebSocket to the passed URL.
 	 *
 	 * @param url the target remote URL
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> ws(String url) {
+	public final Flowable<HttpClientResponse> ws(String url) {
 		return request(WS, url, HttpClientRequest::sendWebsocket);
 	}
 
@@ -293,10 +293,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * @param url the target remote URL
 	 * @param headerBuilder the  header {@link Consumer} to invoke before sending websocket
 	 * handshake
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> ws(String url,
+	public final Flowable<HttpClientResponse> ws(String url,
 			final Consumer<? super HttpHeaders> headerBuilder) {
 		return request(WS,
 				url, ch -> {
@@ -316,10 +316,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 *
 	 * @param url the target remote URL
 	 * @param subprotocols the subprotocol(s) to negotiate, comma-separated, or null if not relevant.
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> ws(String url, String subprotocols) {
+	public final Flowable<HttpClientResponse> ws(String url, String subprotocols) {
 		return request(WS, url, req -> req.sendWebsocket(subprotocols));
 	}
 
@@ -337,10 +337,10 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	 * @param headerBuilder the  header {@link Consumer} to invoke before sending websocket
 	 * handshake
 	 * @param subprotocols the subprotocol(s) to negotiate, comma-separated, or null if not relevant.
-	 * @return a {@link Mono} of the {@link HttpServerResponse} ready to consume for
+	 * @return a {@link Flowable} of the {@link HttpServerResponse} ready to consume for
 	 * response
 	 */
-	public final Mono<HttpClientResponse> ws(String url,
+	public final Flowable<HttpClientResponse> ws(String url,
 			final Consumer<? super HttpHeaders> headerBuilder, String subprotocols) {
 		return request(WS,
 				url, ch -> {
@@ -379,7 +379,7 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 		}
 
 		@Override
-		protected Mono<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+		protected Flowable<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
 				InetSocketAddress address,
 				boolean secure,
 				Consumer<? super Channel> onSetup) {
@@ -388,7 +388,7 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 
 		@Override
 		protected ContextHandler<SocketChannel> doHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-				MonoSink<NettyContext> sink,
+				MaybeEmitter<NettyContext> sink,
 				boolean secure,
 				SocketAddress providedAddress,
 				ChannelPool pool,

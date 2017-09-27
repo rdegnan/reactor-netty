@@ -58,8 +58,6 @@ import reactor.ipc.netty.http.Cookies;
 import reactor.ipc.netty.http.HttpOperations;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
 
@@ -280,9 +278,6 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 			return sendFile(file, 0L, Files.size(file));
 		}
 		catch (IOException e) {
-			if (log.isDebugEnabled()) {
-				log.debug("Path not resolved", e);
-			}
 			return then(sendNotFound());
 		}
 	}
@@ -384,14 +379,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		}
 
 		final ChannelFuture f;
-		if (log.isDebugEnabled()) {
-			log.debug("Last HTTP response frame");
-		}
 		if (markSentHeaderAndBody()) {
-			if (log.isDebugEnabled()) {
-				log.debug("No sendHeaders() called before complete, sending " + "zero-length header");
-			}
-
 			f = channel().writeAndFlush(newFullEmptyBodyMessage());
 		}
 		else if (markSentBody()) {
@@ -404,9 +392,6 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		f.addListener(s -> {
 			if (isOutboundDone()) {
 				onHandlerTerminate();
-			}
-			if (!s.isSuccess() && log.isDebugEnabled()) {
-				log.error("Failed flushing last frame", s.cause());
 			}
 		});
 	}
@@ -421,8 +406,6 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 		discreteRemoteClose(err);
 		if (markSentHeaders()) {
-			log.error("Error starting response. Replying error status", err);
-
 			HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
 					HttpResponseStatus.INTERNAL_SERVER_ERROR);
 			response.headers()
@@ -462,13 +445,8 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 				                 .doOnComplete(() -> ops.accept(null));
 			}
 		}
-		else {
-			log.error("Cannot enable websocket if headers have already been sent");
-		}
 		return Flowable.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
-
-	static final Logger log = Loggers.getLogger(HttpServerOperations.class);
 
 	final static AsciiString      EVENT_STREAM = new AsciiString("text/event-stream");
 	final static FullHttpResponse CONTINUE     =

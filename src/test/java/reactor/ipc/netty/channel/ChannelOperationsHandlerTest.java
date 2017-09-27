@@ -28,9 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.reactivex.Flowable;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
@@ -53,10 +52,10 @@ public class ChannelOperationsHandlerTest {
 				                     .doOnNext(System.err::println)
 														 .ignoreElements()
 				                     .andThen(res.status(200).sendHeaders().then()))
-				          .block(Duration.ofSeconds(30));
+				          .blockingSingle();
 
-		Flux<String> flux = Flux.range(1, 257).map(count -> count + "");
-		Mono<HttpClientResponse> client =
+		Flowable<String> flux = Flowable.range(1, 257).map(count -> count + "");
+		Flowable<HttpClientResponse> client =
 				HttpClient.create(server.address().getPort())
 				          .post("/", req -> req.sendString(flux));
 
@@ -85,7 +84,7 @@ public class ChannelOperationsHandlerTest {
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 
-		StepVerifier.create(FutureFlowable.deferFuture(() -> channel.writeAndFlush(Flux.range(0, 70))))
+		StepVerifier.create(FutureFlowable.deferFuture(() -> channel.writeAndFlush(Flowable.range(0, 70))))
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(30));
 
@@ -105,12 +104,12 @@ public class ChannelOperationsHandlerTest {
 			throw new IOException("Fail to start test server");
 		}
 
-		Mono<HttpClientResponse> response =
+		Flowable<HttpClientResponse> response =
 				HttpClient.create(ops -> ops.host("localhost")
 				                            .port(abortServerPort))
 				          .get("/",
 						          req -> req.sendHeaders()
-						                    .sendString(Flux.just("a", "b", "c")));
+						                    .sendString(Flowable.just("a", "b", "c")));
 
 		StepVerifier.create(response)
 		            .expectError()

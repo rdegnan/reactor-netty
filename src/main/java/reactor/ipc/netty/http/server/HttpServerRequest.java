@@ -23,7 +23,6 @@ import java.util.function.Function;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.reactivex.Flowable;
-import reactor.core.publisher.Flux;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -74,9 +73,9 @@ public interface HttpServerRequest extends NettyInbound, HttpInfos {
 	HttpServerRequest paramsResolver(Function<? super String, Map<String, String>> headerResolver);
 
 	/**
-	 * Return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * Return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 *
-	 * @return a {@link Flux} of {@link HttpContent} containing received chunks
+	 * @return a {@link Flowable} of {@link HttpContent} containing received chunks
 	 */
 	default Flowable<HttpContent> receiveContent() {
 		return receiveObject().ofType(HttpContent.class);

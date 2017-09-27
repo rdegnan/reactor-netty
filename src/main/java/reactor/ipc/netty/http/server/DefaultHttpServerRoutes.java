@@ -27,10 +27,9 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
 
 /**
  * @author Stephane Maldini
@@ -101,7 +100,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 		catch (Throwable t) {
 			Exceptions.throwIfFatal(t);
-			return Mono.error(t); //500
+			return Flowable.error(t); //500
 		}
 
 		return response.sendNotFound();

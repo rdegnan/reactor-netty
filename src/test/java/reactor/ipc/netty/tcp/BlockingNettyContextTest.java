@@ -17,7 +17,6 @@
 package reactor.ipc.netty.tcp;
 
 import java.net.InetSocketAddress;
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -27,8 +26,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.reactivex.Flowable;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;
 
@@ -84,7 +81,7 @@ public class BlockingNettyContextTest {
 								           	return s.endsWith("CONTROL");
 													 })
 								           .map(s -> "ECHO: " + s.replaceAll("CONTROL", ""))
-								           .concatWith(Mono.just("DONE"))
+								           .concatWith(Flowable.just("DONE"))
 						         )
 						         .neverComplete()
 				         );
@@ -98,7 +95,7 @@ public class BlockingNettyContextTest {
 		BlockingNettyContext simpleClient1 =
 				TcpClient.create(simpleServer.getPort())
 				         .start((in, out) -> out.options(NettyPipeline.SendOptions::flushOnEach)
-				                                .sendString(Flux.just("Hello", "World", "CONTROL"))
+				                                .sendString(Flowable.just("Hello", "World", "CONTROL"))
 				                                .then(in.receive()
 				                                        .asString()
 				                                        .takeUntil(s -> {
@@ -116,7 +113,7 @@ public class BlockingNettyContextTest {
 		BlockingNettyContext simpleClient2 =
 				TcpClient.create(simpleServer.getPort())
 				         .start((in, out) -> out.options(NettyPipeline.SendOptions::flushOnEach)
-				                                .sendString(Flux.just("How", "Are", "You?", "CONTROL"))
+				                                .sendString(Flowable.just("How", "Are", "You?", "CONTROL"))
 				                                .then(in.receive()
 				                                        .asString()
 				                                        .takeUntil(s -> {
@@ -161,7 +158,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStart() {
 		assertThatExceptionOfType(RuntimeException.class)
-				.isThrownBy(() -> new BlockingNettyContext(Mono.never(), "TEST NEVER START", 100, TimeUnit.MILLISECONDS))
+				.isThrownBy(() -> new BlockingNettyContext(Flowable.never(), "TEST NEVER START", 100, TimeUnit.MILLISECONDS))
 				.withCauseExactlyInstanceOf(TimeoutException.class)
 				.withMessage("java.util.concurrent.TimeoutException: TEST NEVER START couldn't be started within 100ms");
 	}
@@ -169,7 +166,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStop() {
 		final BlockingNettyContext neverStop =
-				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 100, TimeUnit.MILLISECONDS);
+				new BlockingNettyContext(Flowable.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 100, TimeUnit.MILLISECONDS);
 
 		assertThatExceptionOfType(RuntimeException.class)
 				.isThrownBy(neverStop::shutdown)
@@ -180,7 +177,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStopChangedTimeout() {
 		final BlockingNettyContext neverStop =
-				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 500, TimeUnit.MILLISECONDS);
+				new BlockingNettyContext(Flowable.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 500, TimeUnit.MILLISECONDS);
 
 		neverStop.setLifecycleTimeout(100, TimeUnit.MILLISECONDS);
 
@@ -193,7 +190,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void getContextAddressAndHost() {
 		BlockingNettyContext
-				facade = new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "foo");
+				facade = new BlockingNettyContext(Flowable.just(NEVER_STOP_CONTEXT), "foo");
 
 		assertThat(facade.getContext()).isSameAs(NEVER_STOP_CONTEXT);
 		assertThat(facade.getPort()).isEqualTo(NEVER_STOP_CONTEXT.address().getPort());
@@ -203,7 +200,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void shutdownHookDeregisteredOnShutdown() {
 		BlockingNettyContext facade =
-				new BlockingNettyContext(Mono.just(IMMEDIATE_STOP_CONTEXT), "test");
+				new BlockingNettyContext(Flowable.just(IMMEDIATE_STOP_CONTEXT), "test");
 
 		facade.installShutdownHook();
 		Thread hook = facade.getShutdownHook();
@@ -223,7 +220,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void installShutdownHookTwice() {
 		BlockingNettyContext facade =
-				new BlockingNettyContext(Mono.just(IMMEDIATE_STOP_CONTEXT), "test");
+				new BlockingNettyContext(Flowable.just(IMMEDIATE_STOP_CONTEXT), "test");
 
 		facade.installShutdownHook();
 		Thread hook1 = facade.getShutdownHook();
@@ -256,7 +253,7 @@ public class BlockingNettyContextTest {
 								           	return s.endsWith("CONTROL");
 													 })
 								           .map(s -> "ECHO: " + s.replaceAll("CONTROL", ""))
-								           .concatWith(Mono.just("DONE"))
+								           .concatWith(Flowable.just("DONE"))
 						         )
 						         .neverComplete()
 				         );

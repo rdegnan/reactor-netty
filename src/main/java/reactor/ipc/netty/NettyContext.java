@@ -23,10 +23,9 @@ import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.reactivex.Flowable;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Action;
 import io.reactivex.internal.functions.Functions;
-import reactor.core.Disposable;
-import reactor.core.publisher.Mono;
 
 /**
  * Hold contextual information for the underlying {@link Channel}
@@ -235,11 +234,11 @@ public interface NettyContext extends Disposable {
 	}
 
 	/**
-	 * Return an observing {@link Mono} terminating with success when shutdown
+	 * Return an observing {@link Flowable} terminating with success when shutdown
 	 * successfully
 	 * or error.
 	 *
-	 * @return a {@link Mono} terminating with success if shutdown successfully or error
+	 * @return a {@link Flowable} terminating with success if shutdown successfully or error
 	 */
 	default Flowable<Void> onClose(){
 		return FutureFlowable.from(channel().closeFuture());

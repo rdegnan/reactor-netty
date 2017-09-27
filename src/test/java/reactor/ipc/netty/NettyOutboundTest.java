@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.cert.CertificateException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -50,8 +49,8 @@ import io.netty.handler.stream.ChunkedNioFile;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
+import io.reactivex.exceptions.Exceptions;
 import org.junit.Test;
-import reactor.core.Exceptions;
 import reactor.ipc.netty.channel.data.FileChunkedStrategy;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,7 +121,7 @@ public class NettyOutboundTest {
 		channel.writeOneOutbound(1);
 
 		outbound.sendFile(Paths.get(getClass().getResource("/largeFile.txt").toURI()))
-		        .then().ignoreElements().blockingAwait();
+		        .then().blockingSubscribe();
 
 		assertThat(channel.inboundMessages()).isEmpty();
 		assertThat(channel.outboundMessages()).hasSize(2);
@@ -254,7 +253,7 @@ public class NettyOutboundTest {
 
 		channel.writeOneOutbound(1);
 		outbound.sendFileChunked(path, 0, Files.size(path))
-		        .then().ignoreElements().blockingAwait();
+		        .then().blockingSubscribe();
 
 		assertThat(channel.inboundMessages()).isEmpty();
 		assertThat(messageWritten).containsExactly(Integer.class, ChunkedNioFile.class);

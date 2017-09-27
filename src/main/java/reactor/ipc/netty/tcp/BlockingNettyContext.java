@@ -21,11 +21,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.reactivex.Flowable;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 
 /**
- * Wrap a {@link NettyContext} obtained from a {@link Mono} and offer methods to manage
+ * Wrap a {@link NettyContext} obtained from a {@link Flowable} and offer methods to manage
  * its lifecycle in a blocking fashion.
  *
  * @author Simon Baslé
@@ -39,17 +38,17 @@ public class BlockingNettyContext {
 	private TimeUnit unit;
 	private Thread shutdownHook;
 
-	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
+	public BlockingNettyContext(Flowable<? extends NettyContext> contextAsync,
 															String description) {
 		this(contextAsync, description, 3, TimeUnit.SECONDS);
 	}
 
-	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
+	public BlockingNettyContext(Flowable<? extends NettyContext> contextAsync,
 															String description, long lifecycleTimeout, TimeUnit unit) {
 		this.description = description;
 		this.lifecycleTimeout = lifecycleTimeout;
 		this.unit = unit;
-		this.context = Flowable.fromPublisher(contextAsync)
+		this.context = contextAsync
 				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description + " couldn't be started within " + unit.toMillis(lifecycleTimeout) + "ms")))
 				.blockingSingle();
 	}
@@ -146,8 +145,7 @@ public class BlockingNettyContext {
 		context.dispose();
 		context.onClose()
 				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description + " couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
-				.ignoreElements()
-				.blockingAwait();
+				.blockingSubscribe();
 	}
 
 	protected void shutdownFromJVM() {
@@ -159,7 +157,6 @@ public class BlockingNettyContext {
 		context.onClose()
 				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description +
 						" couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
-				.ignoreElements()
-				.blockingAwait();
+				.blockingSubscribe();
 	}
 }

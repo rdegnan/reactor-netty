@@ -28,8 +28,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.cert.CertificateException;
-import java.time.Duration;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,20 +43,16 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.subjects.MaybeSubject;
 import org.assertj.core.api.Assertions;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.reactivestreams.Processor;
 import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.EmitterProcessor;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
-import reactor.core.publisher.WorkQueueProcessor;
 import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
@@ -132,10 +126,10 @@ public class TcpServerTests {
 				  }
 			  });
 
-			return out.sendString(Mono.just("Hi"))
+			return out.sendString(Flowable.just("Hi"))
 			          .neverComplete();
 		})
-		                                     .block(Duration.ofSeconds(30));
+		                                     .blockingSingle();
 
 		final TcpClient client = TcpClient.create(opts -> opts.host("localhost")
 		                                                      .port(connectedServer.address().getPort())
@@ -152,7 +146,7 @@ public class TcpServerTests {
 			  });
 
 			//out
-			return out.send(Flux.just(new Pojo("John" + " Doe"))
+			return out.send(Flowable.just(new Pojo("John" + " Doe"))
 			                    .map(s -> {
 				                    try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
 					                    m.writeValue(os, s);
@@ -167,7 +161,7 @@ public class TcpServerTests {
 			          .neverComplete();
 //			return Mono.empty();
 		})
-		                                     .block(Duration.ofSeconds(30));
+		                                     .blockingSingle();
 
 		assertTrue("Latch was counted down", latch.await(5, TimeUnit.SECONDS));
 
@@ -180,8 +174,8 @@ public class TcpServerTests {
 		NettyContext httpServer = HttpServer
 				.create(opts -> opts.host("0.0.0.0").port(0))
 				.newRouter(r -> r.get("/data", (request, response) -> {
-					return response.send(Mono.empty());
-				})).block(Duration.ofSeconds(30));
+					return response.send(Flowable.empty());
+				})).blockingSingle();
 		httpServer.dispose();
 	}
 
@@ -198,14 +192,14 @@ public class TcpServerTests {
 					                             remoteAddr.getAddress());
 			                             latch.countDown();
 
-			                             return Flux.never();
+			                             return Flowable.never();
 		                             })
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingSingle();
 
 		NettyContext client = TcpClient.create(port)
-		                               .newHandler((in, out) -> out.sendString(Flux.just(
+		                               .newHandler((in, out) -> out.sendString(Flowable.just(
 				                             "Hello World!")))
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingSingle();
 
 		assertTrue("latch was counted down", latch.await(5, TimeUnit.SECONDS));
 
@@ -228,7 +222,7 @@ public class TcpServerTests {
 				  log.info("data " + data + " on " + in);
 				  latch.countDown();
 			  });
-			return Flux.never();
+			return Flowable.never();
 		};
 
 		TcpServer server = TcpServer.create(opts -> opts
@@ -241,62 +235,17 @@ public class TcpServerTests {
 		                                                 .port(port));
 
 		NettyContext connected = server.newHandler(serverHandler)
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingSingle();
 
-		client.newHandler((in, out) -> out.send(Flux.just("Hello World!\n", "Hello 11!\n")
+		client.newHandler((in, out) -> out.send(Flowable.just("Hello World!\n", "Hello 11!\n")
 		                                            .map(b -> out.alloc()
 		                                                        .buffer()
 		                                                        .writeBytes(b.getBytes()))))
-		      .block(Duration.ofSeconds(30));
+		      .blockingSingle();
 
 		assertTrue("Latch was counted down", latch.await(10, TimeUnit.SECONDS));
 
 		connected.dispose();
-	}
-
-	@Test
-	@Ignore
-	public void test5() throws Exception {
-		//Hot stream of data, could be injected from anywhere
-		EmitterProcessor<String> broadcaster =
-				EmitterProcessor.create();
-
-		//Get a reference to the tail of the operation pipeline (microbatching + partitioning)
-		final Processor<List<String>, List<String>> processor =
-				WorkQueueProcessor.<List<String>>builder().autoCancel(false).build();
-
-		broadcaster
-
-				//transform 10 data in a [] of 10 elements or wait up to 1 Second before emitting whatever the list contains
-				.bufferTimeout(10, Duration.ofSeconds(1))
-				.log("broadcaster")
-				.subscribe(processor);
-
-		//on a server dispatching data on the default shared dispatcher, and serializing/deserializing as string
-		//Listen for anything exactly hitting the root URI and route the incoming connection request to the callback
-		NettyContext s = HttpServer.create(0)
-		                           .newRouter(r -> r.get("/", (request, response) -> {
-			                         //prepare a response header to be appended first before any reply
-			                         response.addHeader("X-CUSTOM", "12345");
-			                         //attach to the shared tail, take the most recent generated substream and merge it to the high level stream
-			                         //returning a stream of String from each microbatch merged
-			                         return response.sendString(Flux.from(processor)
-			                                                        //split each microbatch data into individual data
-			                                                        .flatMap(Flux::fromIterable)
-			                                                        .take(Duration.ofSeconds(
-					                                                        5))
-			                                                        .concatWith(Flux.just(
-					                                                        "end\n")));
-		                         }))
-		                           .block(Duration.ofSeconds(30));
-
-		for (int i = 0; i < 50; i++) {
-			Thread.sleep(500);
-			broadcaster.onNext(System.currentTimeMillis() + "\n");
-		}
-
-		s.dispose();
-
 	}
 
 	@Test
@@ -310,18 +259,18 @@ public class TcpServerTests {
 			                               .subscribe(trip -> {
 				                               countDownLatch.countDown();
 			                               });
-			                             return Flux.never();
+			                             return Flowable.never();
 		                             })
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingSingle();
 
 		System.out.println("PORT +" + server.address()
 		                                    .getPort());
 
 		NettyContext client = TcpClient.create(server.address()
 		                                             .getPort())
-		                               .newHandler((in, out) -> out.sendString(Flux.just(
+		                               .newHandler((in, out) -> out.sendString(Flowable.just(
 				                             "test")))
-		                               .block(Duration.ofSeconds(30));
+		                               .blockingSingle();
 
 		client.dispose();
 		server.dispose();
@@ -338,11 +287,10 @@ public class TcpServerTests {
 				(in, out) -> HttpClient.create()
 				                       .get("foaas.herokuapp.com/life/" + in.param(
 						                       "search"))
-				                       .flatMapMany(repliesOut -> out.send(repliesOut.receive()))))
-		      .block(Duration.ofSeconds(30))
+				                       .flatMap(repliesOut -> out.send(repliesOut.receive()))))
+		      .blockingSingle()
 		      .onClose()
-		      .ignoreElements()
-		      .blockingAwait(30, TimeUnit.SECONDS);
+		      .blockingSubscribe();
 	}
 
 	@Test
@@ -353,13 +301,12 @@ public class TcpServerTests {
 				(in, out) -> HttpClient.create()
 				                       .get("ws://localhost:3000",
 						                       requestOut -> requestOut.sendWebsocket()
-						                                               .sendString(Mono.just("ping")))
-				                       .flatMapMany(repliesOut -> out.sendGroups(repliesOut.receive()
+						                                               .sendString(Flowable.just("ping")))
+				                       .flatMap(repliesOut -> out.sendGroups(repliesOut.receive()
 				                                                                       .window(100)))))
-		      .block(Duration.ofSeconds(30))
+		      .blockingSingle()
 		      .onClose()
-		      .ignoreElements()
-		      .blockingAwait(30, TimeUnit.SECONDS);
+		      .blockingSubscribe();
 	}
 
 	@Test
@@ -392,13 +339,13 @@ public class TcpServerTests {
 						           .asString()
 						           .flatMap(word -> "GOGOGO".equals(word) ?
 								           out.sendFile(largeFile).then() :
-								           out.sendString(Mono.just("NOPE"))
+								           out.sendString(Flowable.just("NOPE"))
 						           )
 				         )
-				         .block();
+				         .blockingSingle();
 
-		MonoProcessor<String> m1 = MonoProcessor.create();
-		MonoProcessor<String> m2 = MonoProcessor.create();
+		MaybeSubject<String> m1 = MaybeSubject.create();
+		MaybeSubject<String> m2 = MaybeSubject.create();
 
 		NettyContext client1 =
 				TcpClient.create(opt -> opt.port(context.address().getPort())
@@ -406,12 +353,12 @@ public class TcpServerTests {
 				         .newHandler((in, out) -> {
 					         in.receive()
 					           .asString()
-					           .subscribe(m1::onNext);
+					           .subscribe(m1::onSuccess);
 
-					         return out.sendString(Mono.just("gogogo"))
+					         return out.sendString(Flowable.just("gogogo"))
 							         .neverComplete();
 				         })
-				         .block();
+				         .blockingSingle();
 
 		NettyContext client2 =
 				TcpClient.create(opt -> opt.port(context.address().getPort())
@@ -421,24 +368,24 @@ public class TcpServerTests {
 					           .asString(StandardCharsets.UTF_8)
 					           .take(2)
 					           .reduceWith(String::new, String::concat)
-					           .subscribe(m2::onNext);
+					           .subscribe(m2::onSuccess);
 
-					         return out.sendString(Mono.just("GOGOGO"))
+					         return out.sendString(Flowable.just("GOGOGO"))
 					                   .neverComplete();
 				         })
-				         .block();
+				         .blockingSingle();
 
-		String client1Response = m1.block();
-		String client2Response = m2.block();
+		String client1Response = m1.blockingGet();
+		String client2Response = m2.blockingGet();
 
 		client1.dispose();
-		client1.onClose().ignoreElements().blockingAwait();
+		client1.onClose().blockingSubscribe();
 
 		client2.dispose();
-		client2.onClose().ignoreElements().blockingAwait();
+		client2.onClose().blockingSubscribe();
 
 		context.dispose();
-		context.onClose().ignoreElements().blockingAwait();
+		context.onClose().blockingSubscribe();
 
 		Assertions.assertThat(client1Response).isEqualTo("NOPE");
 
@@ -497,25 +444,25 @@ public class TcpServerTests {
 						           .asString()
 						           .flatMap(word -> "GOGOGO".equals(word) ?
 								           fn.apply(out).then() :
-								           out.sendString(Mono.just("NOPE"))
+								           out.sendString(Flowable.just("NOPE"))
 						           )
 				         )
-				         .block();
+				         .blockingSingle();
 
-		MonoProcessor<String> m1 = MonoProcessor.create();
-		MonoProcessor<String> m2 = MonoProcessor.create();
+		MaybeSubject<String> m1 = MaybeSubject.create();
+		MaybeSubject<String> m2 = MaybeSubject.create();
 
 		NettyContext client1 =
 				TcpClient.create(opt -> opt.port(context.address().getPort()))
 				         .newHandler((in, out) -> {
 					         in.receive()
 					           .asString()
-					           .subscribe(m1::onNext);
+					           .subscribe(m1::onSuccess);
 
-					         return out.sendString(Mono.just("gogogo"))
+					         return out.sendString(Flowable.just("gogogo"))
 					                   .neverComplete();
 				         })
-				         .block();
+				         .blockingSingle();
 
 		NettyContext client2 =
 				TcpClient.create(opt -> opt.port(context.address().getPort()))
@@ -524,24 +471,24 @@ public class TcpServerTests {
 					           .asString(StandardCharsets.UTF_8)
 					           .take(2)
 					           .reduceWith(String::new, String::concat)
-					           .subscribe(m2::onNext);
+					           .subscribe(m2::onSuccess);
 
-					         return out.sendString(Mono.just("GOGOGO"))
+					         return out.sendString(Flowable.just("GOGOGO"))
 					                   .neverComplete();
 				         })
-				         .block();
+				         .blockingSingle();
 
-		String client1Response = m1.block();
-		String client2Response = m2.block();
+		String client1Response = m1.blockingGet();
+		String client2Response = m2.blockingGet();
 
 		client1.dispose();
-		client1.onClose().ignoreElements().blockingAwait();
+		client1.onClose().blockingSubscribe();
 
 		client2.dispose();
-		client2.onClose().ignoreElements().blockingAwait();
+		client2.onClose().blockingSubscribe();
 
 		context.dispose();
-		context.onClose().ignoreElements().blockingAwait();
+		context.onClose().blockingSubscribe();
 
 		Assertions.assertThat(client1Response).isEqualTo("NOPE");
 
@@ -558,7 +505,7 @@ public class TcpServerTests {
 		CountDownLatch startLatch = new CountDownLatch(1);
 
 		Thread t = new Thread(() -> TcpServer.create()
-		                                     .startAndAwait((in, out) -> out.sendString(Mono.just("foo")),
+		                                     .startAndAwait((in, out) -> out.sendString(Flowable.just("foo")),
 				v -> {bnc.set(v);
 					                                     startLatch.countDown();
 				                                     }));

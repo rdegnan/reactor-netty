@@ -17,14 +17,12 @@ package reactor.ipc.netty.http
 
 import io.netty.handler.codec.http.cookie.Cookie
 import io.netty.handler.codec.http.cookie.DefaultCookie
-import reactor.core.publisher.Mono
+import io.reactivex.Flowable
+import io.reactivex.functions.Function
 import reactor.ipc.netty.http.client.HttpClient
 import reactor.ipc.netty.http.client.HttpClientResponse
 import reactor.ipc.netty.http.server.HttpServer
 import spock.lang.Specification
-
-import java.time.Duration
-import java.util.function.Function
 
 class HttpCookieHandlingSpec extends Specification {
 
@@ -36,13 +34,13 @@ class HttpCookieHandlingSpec extends Specification {
 		resp.addCookie(new DefaultCookie("cookie1", "test_value"))
 				.send(req.receive())
 	  }
-	}.block(Duration.ofSeconds(30))
+	}.blockingSingle()
 
 	def cookieResponse = HttpClient.create("localhost", server.address().port).
 			get('/test')
-			.flatMap({ replies -> Mono.just(replies.cookies()) }
-					as Function<HttpClientResponse, Mono<Map<CharSequence, Set<Cookie>>>>)
-			.doOnSuccess {
+			.flatMap({ replies -> Flowable.just(replies.cookies()) }
+					as Function<HttpClientResponse, Flowable<Map<CharSequence, Set<Cookie>>>>)
+			.doOnComplete() {
 	  			println it
 			}
 			.doOnError {
@@ -52,7 +50,7 @@ class HttpCookieHandlingSpec extends Specification {
 	then: "data with cookies was received"
 	def value = ""
 	try {
-	  def receivedCookies = cookieResponse.block(Duration.ofSeconds(30))
+	  def receivedCookies = cookieResponse.blockingSingle()
 	  value = receivedCookies.get("cookie1")[0].value()
 	}
 	catch (RuntimeException ex) {

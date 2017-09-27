@@ -22,14 +22,12 @@ import java.net.NetworkInterface;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.socket.DatagramChannel;
+import io.reactivex.Flowable;
 import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @author Stephane Maldini
@@ -59,7 +57,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 	 *
 	 * @return a {@link Publisher} that will be complete when the group has been joined
 	 */
-	public Mono<Void> join(final InetAddress multicastAddress, NetworkInterface iface) {
+	public Flowable<Void> join(final InetAddress multicastAddress, NetworkInterface iface) {
 		if (null == iface && null != datagramChannel.config().getNetworkInterface()) {
 			iface = datagramChannel.config().getNetworkInterface();
 		}
@@ -74,8 +72,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.joinGroup(multicastAddress);
 		}
 
-		return Mono.<Void>fromDirect(FutureFlowable.from(future))
-		                 .doOnSuccess(v -> log.info("JOIN {}", multicastAddress));
+		return FutureFlowable.from(future);
 	}
 
 	/**
@@ -85,7 +82,7 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 	 *
 	 * @return a {@link Publisher} that will be complete when the group has been left
 	 */
-	public Mono<Void> leave(final InetAddress multicastAddress, NetworkInterface iface) {
+	public Flowable<Void> leave(final InetAddress multicastAddress, NetworkInterface iface) {
 		if (null == iface && null != datagramChannel.config().getNetworkInterface()) {
 			iface = datagramChannel.config().getNetworkInterface();
 		}
@@ -100,9 +97,6 @@ final class UdpOperations extends ChannelOperations<UdpInbound, UdpOutbound>
 			future = datagramChannel.leaveGroup(multicastAddress);
 		}
 
-		return Mono.<Void>fromDirect(FutureFlowable.from(future))
-		                 .doOnSuccess(v -> log.info("JOIN {}", multicastAddress));
+		return FutureFlowable.from(future);
 	}
-
-	static final Logger log = Loggers.getLogger(UdpOperations.class);
 }

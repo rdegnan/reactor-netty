@@ -19,19 +19,19 @@ package reactor.ipc.netty.http.client;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.AsciiString;
+import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import org.reactivestreams.Publisher;
-import reactor.core.CoreSubscriber;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
+import org.reactivestreams.Subscriber;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.AbortedException;
@@ -39,7 +39,7 @@ import reactor.ipc.netty.channel.AbortedException;
 /**
  * @author Stephane Maldini
  */
-final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
+final class FlowableHttpClientResponse extends Flowable<HttpClientResponse> {
 
 	final HttpClient                                                     parent;
 	final URI                                                            startURI;
@@ -48,16 +48,16 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 
 	static final AsciiString ALL = new AsciiString("*/*");
 
-	MonoHttpClientResponse(HttpClient parent, String url,
-			HttpMethod method,
-			Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
+	FlowableHttpClientResponse(HttpClient parent, String url,
+														 HttpMethod method,
+														 Function<? super HttpClientRequest, ? extends Publisher<Void>> handler) {
 		this.parent = parent;
 		try {
 			this.startURI = new URI(parent.options.formatSchemeAndHost(url,
 					method == HttpClient.WS));
 		}
 		catch (URISyntaxException e) {
-			throw Exceptions.bubble(e);
+			throw Exceptions.propagate(e);
 		}
 		this.method = method == HttpClient.WS ? HttpMethod.GET : method;
 		this.handler = handler;
@@ -66,11 +66,11 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public void subscribe(final CoreSubscriber<? super HttpClientResponse> subscriber) {
+	public void subscribeActual(final Subscriber<? super HttpClientResponse> subscriber) {
 		ReconnectableBridge bridge = new ReconnectableBridge();
 		bridge.activeURI = startURI;
 
-		Mono.defer(() -> parent.client.newHandler(new HttpClientHandler(this, bridge),
+		Flowable.defer(() -> parent.client.newHandler(new HttpClientHandler(this, bridge),
 				parent.options.getRemoteAddress(bridge.activeURI),
 				HttpClientOptions.isSecure(bridge.activeURI),
 				bridge))
@@ -82,10 +82,10 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 	static final class HttpClientHandler
 			implements BiFunction<NettyInbound, NettyOutbound, Publisher<Void>> {
 
-		final MonoHttpClientResponse parent;
+		final FlowableHttpClientResponse parent;
 		final ReconnectableBridge    bridge;
 
-		HttpClientHandler(MonoHttpClientResponse parent, ReconnectableBridge bridge) {
+		HttpClientHandler(FlowableHttpClientResponse parent, ReconnectableBridge bridge) {
 			this.bridge = bridge;
 			this.parent = parent;
 		}
@@ -123,7 +123,7 @@ final class MonoHttpClientResponse extends Mono<HttpClientResponse> {
 				}
 			}
 			catch (Throwable t) {
-				return Mono.error(t);
+				return Flowable.error(t);
 			}
 		}
 

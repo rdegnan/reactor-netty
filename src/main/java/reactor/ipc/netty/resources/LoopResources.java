@@ -25,7 +25,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.reactivex.Flowable;
-import reactor.core.Disposable;
+import io.reactivex.disposables.Disposable;
 
 /**
  * An {@link EventLoopGroup} selector with associated
@@ -219,6 +219,11 @@ public interface LoopResources extends Disposable {
 	default void dispose() {
 		//noop default
 		disposeLater().subscribe();
+	}
+
+	@Override
+	default boolean isDisposed() {
+		return false;
 	}
 
 	/**

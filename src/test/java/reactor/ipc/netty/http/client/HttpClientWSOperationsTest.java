@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 
+import io.reactivex.Flowable;
 import org.junit.Test;
 
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
@@ -75,18 +75,18 @@ public class HttpClientWSOperationsTest {
 							res.status(token);
 							return res.send();
 						}
-						return res.sendWebsocket(serverSubprotocol, (i, o) -> o.sendString(Mono.just("test")));
+						return res.sendWebsocket(serverSubprotocol, (i, o) -> o.sendString(Flowable.just("test")));
 					})
 			)
-			.block(Duration.ofSeconds(30));
+			.blockingSingle();
 
-		Mono<HttpClientResponse> response =
+		Flowable<HttpClientResponse> response =
 			HttpClient.create(httpServer.address().getPort())
-			          .get("/ws", request -> Mono.just(request.failOnClientError(clientError)
+			          .get("/ws", request -> Flowable.just(request.failOnClientError(clientError)
 			                                                  .failOnServerError(serverError))
-			                                     .transform(req -> doLoginFirst(req, httpServer.address().getPort()))
-			                                     .flatMapMany(req -> ws(req, clientSubprotocol)))
-			          .switchIfEmpty(Mono.error(new Exception()));
+			                                     .to(req -> doLoginFirst(req, httpServer.address().getPort()))
+			                                     .flatMap(req -> ws(req, clientSubprotocol)))
+			          .switchIfEmpty(Flowable.error(new Exception()));
 
 
 		if (clientError || serverError) {
@@ -103,16 +103,14 @@ public class HttpClientWSOperationsTest {
 		}
 	}
 
-	private Mono<HttpClientRequest> doLoginFirst(Mono<HttpClientRequest> request, int port) {
-		return Mono.zip(request, login(port))
-		           .map(tuple -> {
-		               HttpClientRequest req = tuple.getT1();
-		               req.addHeader("Authorization", tuple.getT2());
-		               return req;
-		           });
+	private Flowable<HttpClientRequest> doLoginFirst(Flowable<HttpClientRequest> request, int port) {
+		return request.zipWith(login(port), (req, auth) -> {
+				 req.addHeader("Authorization", auth);
+				 return req;
+		 });
 	}
 
-	private Mono<String> login(int port) {
+	private Flowable<String> login(int port) {
 		return HttpClient.create(port)
 		                 .post("/login", req -> req.failOnClientError(false)
 		                                           .failOnServerError(false))

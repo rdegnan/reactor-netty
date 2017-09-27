@@ -18,6 +18,7 @@ package reactor.ipc.netty.options;
 
 import java.net.SocketAddress;
 import java.time.Duration;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -36,7 +37,6 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AttributeKey;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.resources.LoopResources;
-import reactor.util.function.Tuple2;
 
 /**
  * A common connector builder with low-level connection options including sslContext, tcp
@@ -165,11 +165,11 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 	 * Return a new eventual {@link SslHandler}, optionally with SNI activated
 	 *
 	 * @param allocator {@link ByteBufAllocator} to allocate for packet storage
-	 * @param sniInfo {@link Tuple2} with hostname and port for SNI (any null will skip SNI).
+	 * @param sniInfo {@link Entry} with hostname and port for SNI (any null will skip SNI).
 	 * @return a new eventual {@link SslHandler} with SNI activated
 	 */
 	public final SslHandler getSslHandler(ByteBufAllocator allocator,
-			Tuple2<String, Integer> sniInfo) {
+			Entry<String, Integer> sniInfo) {
 		SslContext sslContext =
 				this.sslContext == null ? defaultSslContext() : this.sslContext;
 
@@ -179,8 +179,8 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 
 		Objects.requireNonNull(allocator, "allocator");
 		SslHandler sslHandler;
-		if (sniInfo != null && sniInfo.getT1() != null && sniInfo.getT2() != null) {
-			sslHandler = sslContext.newHandler(allocator, sniInfo.getT1(), sniInfo.getT2());
+		if (sniInfo != null && sniInfo.getKey() != null && sniInfo.getValue() != null) {
+			sslHandler = sslContext.newHandler(allocator, sniInfo.getKey(), sniInfo.getValue());
 		}
 		else {
 			sslHandler = sslContext.newHandler(allocator);

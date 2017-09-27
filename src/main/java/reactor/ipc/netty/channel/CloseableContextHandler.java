@@ -25,13 +25,11 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
+import io.reactivex.MaybeEmitter;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.NettyOptions;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @param <CHANNEL> the channel type
@@ -41,13 +39,11 @@ import reactor.util.Loggers;
 abstract class CloseableContextHandler<CHANNEL extends Channel>
 		extends ContextHandler<CHANNEL> implements ChannelFutureListener {
 
-	static final Logger log = Loggers.getLogger(CloseableContextHandler.class);
-
 	ChannelFuture f;
 
 	CloseableContextHandler(ChannelOperations.OnNew<CHANNEL> channelOpFactory,
 			NettyOptions<?, ?> options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			SocketAddress providedAddress) {
 		super(channelOpFactory, options, sink, loggingHandler, providedAddress);
@@ -62,14 +58,13 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 	public final void operationComplete(ChannelFuture f) throws Exception {
 		if (!f.isSuccess()) {
 			if(f.isCancelled()){
-				log.debug("Cancelled {}", f.channel().toString());
 				return;
 			}
 			if (f.cause() != null) {
-				sink.error(f.cause());
+				sink.onError(f.cause());
 			}
 			else {
-				sink.error(new IOException("error while connecting to " + f.channel()
+				sink.onError(new IOException("error while connecting to " + f.channel()
 				                                                           .toString()));
 			}
 		}
@@ -86,9 +81,6 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 			future.cancel(true);
 			return;
 		}
-		if(log.isDebugEnabled()){
-			log.debug("Connecting new channel: {}", future.toString());
-		}
 		this.f = (ChannelFuture) future;
 
 		if(future.isDone()){
@@ -104,7 +96,7 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 	}
 
 	@Override
-	public final void dispose() {
+	public final void cancel() {
 		if (f == null){
 			return;
 		}

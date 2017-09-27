@@ -28,16 +28,17 @@ import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
+import io.reactivex.Flowable;
+import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiFunction;
 import org.reactivestreams.Publisher;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyConnector;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
 import reactor.ipc.netty.channel.ChannelOperations;
 import reactor.ipc.netty.channel.ContextHandler;
+import reactor.ipc.netty.NettyHandler;
 import reactor.ipc.netty.options.ClientOptions;
 import reactor.ipc.netty.options.NettyOptions;
 import reactor.ipc.netty.resources.PoolResources;
@@ -135,7 +136,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	@Override
-	public final Mono<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
+	public final Flowable<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
 		Objects.requireNonNull(handler, "handler");
 		return newHandler(handler, null, true, null);
 	}
@@ -162,7 +163,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 *
 	 * @return a new Mono to connect on subscribe
 	 */
-	protected Mono<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
+	protected Flowable<NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
 			InetSocketAddress address,
 			boolean secure,
 			Consumer<? super Channel> onSetup) {
@@ -171,7 +172,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 				targetHandler =
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
-		return Mono.create(sink -> {
+		return NettyHandler.create(sink -> {
 			SocketAddress remote = address != null ? address : options.getAddress();
 
 			ChannelPool pool = null;
@@ -185,7 +186,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 
 			ContextHandler<SocketChannel> contextHandler =
 					doHandler(targetHandler, sink, secure, remote, pool, onSetup);
-			sink.onCancel(contextHandler);
+			sink.setCancellable(contextHandler);
 
 			if (pool == null) {
 				Bootstrap b = options.get();
@@ -211,7 +212,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	 * @return a new {@link ContextHandler}
 	 */
 	protected ContextHandler<SocketChannel> doHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			boolean secure,
 			SocketAddress providedAddress,
 			ChannelPool pool,

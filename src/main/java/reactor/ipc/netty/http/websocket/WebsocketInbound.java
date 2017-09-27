@@ -19,7 +19,6 @@ package reactor.ipc.netty.http.websocket;
 import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import io.reactivex.Flowable;
-import reactor.core.publisher.Flux;
 import reactor.ipc.netty.NettyInbound;
 
 /**
@@ -65,7 +64,7 @@ public interface WebsocketInbound extends NettyInbound {
 	}
 
 	/**
-	 * @return a {@link Flux} of {@link WebSocketFrame} formed frame content
+	 * @return a {@link Flowable} of {@link WebSocketFrame} formed frame content
 	 */
 	default Flowable<WebSocketFrame> receiveFrames() {
 		return receiveObject().ofType(WebSocketFrame.class);

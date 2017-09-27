@@ -24,9 +24,9 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LoggingHandler;
+import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.Action;
 import io.reactivex.internal.functions.Functions;
-import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.ServerOptions;
 
@@ -41,7 +41,7 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 
 	ServerContextHandler(ChannelOperations.OnNew<Channel> channelOpFactory,
 			ServerOptions options,
-			MonoSink<NettyContext> sink,
+			MaybeEmitter<NettyContext> sink,
 			LoggingHandler loggingHandler,
 			SocketAddress providedAddress) {
 		super(channelOpFactory, options, sink, loggingHandler, providedAddress);
@@ -50,7 +50,7 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 
 	@Override
 	protected void doStarted(Channel channel) {
-		sink.success(this);
+		sink.onSuccess(this);
 	}
 
 	@Override
@@ -60,14 +60,6 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 
 	@Override
 	public void fireContextError(Throwable err) {
-		if (AbortedException.isConnectionReset(err)) {
-			if (log.isDebugEnabled()) {
-				log.error("Connection closed remotely", err);
-			}
-		}
-		else if (log.isErrorEnabled()) {
-			log.error("Handler failure while no child channelOperation was present", err);
-		}
 	}
 
 	@Override

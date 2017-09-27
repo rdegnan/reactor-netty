@@ -89,9 +89,6 @@ final class HttpServerWSOperations extends HttpServerOperations
 	@Override
 	public void onInboundNext(ChannelHandlerContext ctx, Object frame) {
 		if (frame instanceof CloseWebSocketFrame && ((CloseWebSocketFrame) frame).isFinalFragment()) {
-			if (log.isDebugEnabled()) {
-				log.debug("CloseWebSocketFrame detected. Closing Websocket");
-			}
 			CloseWebSocketFrame close = (CloseWebSocketFrame) frame;
 			sendClose(new CloseWebSocketFrame(true,
 					close.rsv(),

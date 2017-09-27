@@ -26,7 +26,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -39,12 +38,12 @@ import java.util.concurrent.TimeUnit;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.util.NetUtil;
+import io.reactivex.Flowable;
+import io.reactivex.schedulers.Schedulers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
 import reactor.util.Logger;
@@ -71,7 +70,7 @@ public class UdpServerTests {
 	public void cleanup() throws InterruptedException {
 		threadPool.shutdown();
 		threadPool.awaitTermination(5, TimeUnit.SECONDS);
-		Schedulers.shutdownNow();
+		Schedulers.shutdown();
 	}
 
 	@Test
@@ -89,9 +88,9 @@ public class UdpServerTests {
 					                                     latch.countDown();
 				                                     }
 			                                     });
-			                                   return Flux.never();
+			                                   return Flowable.never();
 		                                   })
-		                                     .doOnSuccess(v -> {
+		                                     .doOnComplete(() -> {
 			                                   try {
 				                                   DatagramChannel udp =
 						                                   DatagramChannel.open();
@@ -112,7 +111,7 @@ public class UdpServerTests {
 				                                   e.printStackTrace();
 			                                   }
 		                                   })
-		                                     .block(Duration.ofSeconds(30));
+		                                     .blockingSingle();
 
 		assertThat("latch was counted down", latch.await(10, TimeUnit.SECONDS));
 		server.dispose();
@@ -122,7 +121,7 @@ public class UdpServerTests {
 	@SuppressWarnings("unchecked")
 	public void supportsUdpMulticast() throws Exception {
 		final int port = SocketUtils.findAvailableUdpPort();
-		final CountDownLatch latch = new CountDownLatch(Schedulers.DEFAULT_POOL_SIZE);
+		final CountDownLatch latch = new CountDownLatch(4);
 		Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
 
 		final InetAddress multicastGroup = InetAddress.getByName("230.0.0.1");
@@ -136,36 +135,36 @@ public class UdpServerTests {
 					                             .connectAddress(() -> new InetSocketAddress(port))
 					                             .protocolFamily(InternetProtocolFamily.IPv4))
 					         .newHandler((in, out) -> {
-						         Flux.<NetworkInterface>generate(s -> {
+						         Flowable.<NetworkInterface>generate(s -> {
 					                             if (ifaces.hasMoreElements()) {
-						                             s.next(ifaces.nextElement());
+						                             s.onNext(ifaces.nextElement());
 					                             }
 					                             else {
-						                             s.complete();
+						                             s.onComplete();
 					                             }
 				                             }).flatMap(iface -> {
 					                             if (isMulticastEnabledIPv4Interface(iface)) {
 						                             return in.join(multicastGroup,
 								                             iface);
 					                             }
-					                             return Flux.empty();
+					                             return Flowable.empty();
 				                             })
-				                               .thenMany(in.receive()
+				                               .ignoreElements()
+				                               .andThen(in.receive()
 				                                           .asByteArray())
-				                               .log()
 				                               .subscribe(bytes -> {
 					                               if (bytes.length == 1024) {
 						                               latch.countDown();
 					                               }
 				                               });
-				                             return Flux.never();
+				                             return Flowable.never();
 			                             })
-					         .block(Duration.ofSeconds(30));
+					         .blockingSingle();
 
 			servers.add(server);
 		}
 
-		for (int i = 0; i < Schedulers.DEFAULT_POOL_SIZE; i++) {
+		for (int i = 0; i < 4; i++) {
 			threadPool.submit(() -> {
 				try {
 					MulticastSocket multicast = new MulticastSocket();

@@ -32,8 +32,6 @@ import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiConsumer;
 import org.reactivestreams.Publisher;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * Internal helpers for reactor-netty contracts
@@ -66,9 +64,6 @@ final class ReactorNetty {
 		boolean exists = channel.pipeline().get(name) != null;
 
 		if (exists) {
-			if (log.isDebugEnabled()) {
-				log.debug("Handler [{}] already exists in the pipeline, decoder has been skipped", name);
-			}
 			return;
 		}
 
@@ -89,12 +84,6 @@ final class ReactorNetty {
 		}
 
 		registerForClose(shouldCleanupOnClose(channel),  name, context);
-
-		if (log.isDebugEnabled()) {
-			log.debug("Added decoder [{}] at the end of the user pipeline, full pipeline: {}",
-					name,
-					channel.pipeline().names());
-		}
 	}
 
 	/**
@@ -120,9 +109,6 @@ final class ReactorNetty {
 		boolean exists = channel.pipeline().get(name) != null;
 
 		if (exists) {
-			if (log.isDebugEnabled()) {
-				log.debug("Handler [{}] already exists in the pipeline, encoder has been skipped", name);
-			}
 			return;
 		}
 
@@ -142,12 +128,6 @@ final class ReactorNetty {
 		}
 
 		registerForClose(shouldCleanupOnClose(channel), name, context);
-
-		if (log.isDebugEnabled()) {
-			log.debug("Added encoder [{}] at the beginning of the user pipeline, full pipeline: {}",
-					name,
-					channel.pipeline().names());
-		}
 	}
 
 	static void registerForClose(boolean shouldCleanupOnClose,
@@ -162,20 +142,6 @@ final class ReactorNetty {
 		                                 .context(name) != null) {
 			channel.pipeline()
 			       .remove(name);
-			if (log.isDebugEnabled()) {
-				log.debug("{} Removed handler: {}, pipeline: {}",
-						channel,
-						name,
-						channel.pipeline());
-			}
-		}
-		else if (log.isDebugEnabled()) {
-			log.debug(" Non Removed handler: {}, context: {}, pipeline: {}",
-					channel,
-					name,
-					channel.pipeline()
-					       .context(name),
-					channel.pipeline());
 		}
 	}
 
@@ -184,20 +150,6 @@ final class ReactorNetty {
 		                                 .context(name) != null) {
 			channel.pipeline()
 			       .replace(name, name, handler);
-			if (log.isDebugEnabled()) {
-				log.debug("{} Replaced handler: {}, pipeline: {}",
-						channel,
-						name,
-						channel.pipeline());
-			}
-		}
-		else if (log.isDebugEnabled()) {
-			log.debug(" Non Replaced handler: {}, context: {}, pipeline: {}",
-					channel,
-					name,
-					channel.pipeline()
-					       .context(name),
-					channel.pipeline());
 		}
 	}
 
@@ -306,7 +258,6 @@ final class ReactorNetty {
 
 	static final Object TERMINATED                 = new TerminatedHandlerEvent();
 	static final Object RESPONSE_COMPRESSION_EVENT = new ResponseWriteCompleted();
-	static final Logger log                        = Loggers.getLogger(ReactorNetty.class);
 
 	/**
 	 * A handler that can be used to extract {@link ByteBuf} out of {@link ByteBufHolder},

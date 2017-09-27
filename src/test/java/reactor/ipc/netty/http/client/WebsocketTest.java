@@ -16,23 +16,20 @@
 
 package reactor.ipc.netty.http.client;
 
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.reactivex.Flowable;
+import io.reactivex.processors.FlowableProcessor;
+import io.reactivex.processors.ReplayProcessor;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxProcessor;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.ReplayProcessor;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.ipc.netty.http.server.HttpServer;
-import reactor.test.StepVerifier;
 
 import static org.hamcrest.CoreMatchers.is;
 
@@ -56,19 +53,18 @@ public class WebsocketTest {
 	public void simpleTest() {
 		httpServer = HttpServer.create(0)
 		                       .newHandler((in, out) -> out.sendWebsocket((i, o) -> o.sendString(
-				                       Mono.just("test"))))
-		                       .block(Duration.ofSeconds(30));
+				                       Flowable.just("test"))))
+		                       .blockingSingle();
 
 		String res = HttpClient.create(httpServer.address()
 		                                  .getPort())
 		                .get("/test",
 				                out -> out.addHeader("Authorization", auth)
 				                          .sendWebsocket())
-		                .flatMapMany(in -> in.receive()
+		                .flatMap(in -> in.receive()
 		                                 .asString())
-		                .log()
-		                .collectList()
-		                .block(Duration.ofSeconds(30))
+		                .toList()
+		                .blockingGet()
 		                .get(0);
 
 		Assert.assertThat(res, is("test"));
@@ -114,26 +110,26 @@ public class WebsocketTest {
 		                       .newHandler((in, out) -> out.sendWebsocket(
 				                       (i, o) -> o.options(opt -> opt.flushOnEach())
 				                                  .sendString(
-						                                  Mono.just("test")
-						                                      .delayElement(Duration.ofMillis(100))
+																							Flowable.just("test")
+						                                      .delay(100, TimeUnit.MILLISECONDS)
 						                                      .repeat())))
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingSingle();
 
-		Flux<String> ws = HttpClient.create(httpServer.address()
+		Flowable<String> ws = HttpClient.create(httpServer.address()
 		                                              .getPort())
 		                            .ws("/")
-		                            .flatMapMany(in -> in.receiveWebsocket()
+		                            .flatMap(in -> in.receiveWebsocket()
 		                                             .aggregateFrames()
 		                                             .receive()
 		                                             .asString());
 
-		StepVerifier.create(ws.take(c)
-		                      .log())
-		            .expectNextSequence(Flux.range(1, c)
-		                                    .map(v -> "test")
-		                                    .toIterable())
-		            .expectComplete()
-		            .verify();
+		ws.take(c)
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValueSequence(Flowable.range(1, c)
+																.map(v -> "test")
+																.blockingIterable())
+				.assertComplete();
 	}
 
 
@@ -144,26 +140,26 @@ public class WebsocketTest {
 		                       .newHandler((in, out) -> out.sendWebsocket(
 				                       (i, o) -> o.options(opt -> opt.flushOnEach())
 				                                  .sendByteArray(
-						                                  Mono.just("test".getBytes())
-						                                      .delayElement(Duration.ofMillis(100))
+																							Flowable.just("test".getBytes())
+						                                      .delay(100, TimeUnit.MILLISECONDS)
 						                                      .repeat())))
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingSingle();
 
-		Flux<String> ws = HttpClient.create(httpServer.address()
+		Flowable<String> ws = HttpClient.create(httpServer.address()
 		                                              .getPort())
 		                            .ws("/")
-		                            .flatMapMany(in -> in.receiveWebsocket()
+		                            .flatMap(in -> in.receiveWebsocket()
 		                                             .aggregateFrames()
 		                                             .receive()
 		                                             .asString());
 
-		StepVerifier.create(ws.take(c)
-		                      .log())
-		            .expectNextSequence(Flux.range(1, c)
-		                                    .map(v -> "test")
-		                                    .toIterable())
-		            .expectComplete()
-		            .verify();
+		ws.take(c)
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValueSequence(Flowable.range(1, c)
+																.map(v -> "test")
+																.blockingIterable())
+				.assertComplete();
 	}
 
 	@Test
@@ -173,15 +169,13 @@ public class WebsocketTest {
 		CountDownLatch clientLatch = new CountDownLatch(c);
 		CountDownLatch serverLatch = new CountDownLatch(c);
 
-		FluxProcessor<String, String> server =
-				ReplayProcessor.<String>create().serialize();
-		FluxProcessor<String, String> client =
-				ReplayProcessor.<String>create().serialize();
+		FlowableProcessor<String> server =
+				ReplayProcessor.<String>create().toSerialized();
+		FlowableProcessor<String> client =
+				ReplayProcessor.<String>create().toSerialized();
 
-		server.log("server")
-		      .subscribe(v -> serverLatch.countDown());
-		client.log("client")
-		      .subscribe(v -> clientLatch.countDown());
+		server.subscribe(v -> serverLatch.countDown());
+		client.subscribe(v -> clientLatch.countDown());
 
 		httpServer = HttpServer.create(0)
 		                       .newHandler((in, out) -> out.sendWebsocket((i, o) -> o.sendString(
@@ -189,16 +183,16 @@ public class WebsocketTest {
 				                        .asString()
 				                        .take(c)
 				                        .subscribeWith(server))))
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingSingle();
 
-		Flux.interval(Duration.ofMillis(200))
+		Flowable.interval(200, TimeUnit.MILLISECONDS)
 		    .map(Object::toString)
 		    .subscribe(client::onNext);
 
 		HttpClient.create(httpServer.address()
 		                            .getPort())
 		          .ws("/test")
-		          .flatMapMany(in -> in.receiveWebsocket((i, o) -> o.options(opt -> opt.flushOnEach())
+		          .flatMap(in -> in.receiveWebsocket((i, o) -> o.options(opt -> opt.flushOnEach())
 		                                                     .sendString(i.receive()
 		                                                                  .asString()
 		                                                                  .subscribeWith(
@@ -213,18 +207,18 @@ public class WebsocketTest {
 	public void simpleSubprotocolServerNoSubprotocol() throws Exception {
 		httpServer = HttpServer.create(0)
 		                                    .newHandler((in, out) -> out.sendWebsocket((i, o) -> o.sendString(
-				                                    Mono.just("test"))))
-		                                    .block(Duration.ofSeconds(30));
+				                                    Flowable.just("test"))))
+		                                    .blockingSingle();
 
-		StepVerifier.create(
-				HttpClient.create(
-						httpServer.address().getPort())
-				          .get("/test",
-						          out -> out.addHeader("Authorization", auth)
-						                    .sendWebsocket("SUBPROTOCOL,OTHER"))
-				          .flatMapMany(in -> in.receive().asString())
-		)
-		            .verifyErrorMessage("Invalid subprotocol. Actual: null. Expected one of: SUBPROTOCOL,OTHER");
+		HttpClient.create(
+				httpServer.address().getPort())
+							.get("/test",
+									out -> out.addHeader("Authorization", auth)
+														.sendWebsocket("SUBPROTOCOL,OTHER"))
+							.flatMap(in -> in.receive().asString())
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertErrorMessage("Invalid subprotocol. Actual: null. Expected one of: SUBPROTOCOL,OTHER");
 	}
 
 	@Test
@@ -232,19 +226,19 @@ public class WebsocketTest {
 		httpServer = HttpServer.create(0)
 		                       .newHandler((in, out) -> out.sendWebsocket(
 				                       "protoA,protoB",
-				                       (i, o) -> o.sendString(Mono.just("test"))))
-		                       .block(Duration.ofSeconds(30));
+				                       (i, o) -> o.sendString(Flowable.just("test"))))
+		                       .blockingSingle();
 
-		StepVerifier.create(
-				HttpClient.create(
-						httpServer.address().getPort())
-				          .get("/test",
-						          out -> out.addHeader("Authorization", auth)
-						                    .sendWebsocket("SUBPROTOCOL,OTHER"))
-				          .flatMapMany(in -> in.receive().asString())
-		)
-		            //the SERVER returned null which means that it couldn't select a protocol
-		            .verifyErrorMessage("Invalid subprotocol. Actual: null. Expected one of: SUBPROTOCOL,OTHER");
+		HttpClient.create(
+				httpServer.address().getPort())
+							.get("/test",
+									out -> out.addHeader("Authorization", auth)
+														.sendWebsocket("SUBPROTOCOL,OTHER"))
+							.flatMap(in -> in.receive().asString())
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				//the SERVER returned null which means that it couldn't select a protocol
+				.assertErrorMessage("Invalid subprotocol. Actual: null. Expected one of: SUBPROTOCOL,OTHER");
 	}
 
 	@Test
@@ -253,14 +247,14 @@ public class WebsocketTest {
 		                       .newHandler((in, out) -> out.sendWebsocket(
 				                       "SUBPROTOCOL",
 				                       (i, o) -> o.sendString(
-						                       Mono.just("test"))))
-		                       .block(Duration.ofSeconds(30));
+						                       Flowable.just("test"))))
+		                       .blockingSingle();
 
 		String res = HttpClient.create(httpServer.address().getPort())
 		                       .get("/test",
 				                out -> out.addHeader("Authorization", auth)
 				                          .sendWebsocket("SUBPROTOCOL,OTHER"))
-		                .flatMapMany(in -> in.receive().asString()).log().collectList().block(Duration.ofSeconds(30)).get(0);
+		                .flatMap(in -> in.receive().asString()).toList().blockingGet().get(0);
 
 		Assert.assertThat(res, is("test"));
 	}
@@ -271,17 +265,17 @@ public class WebsocketTest {
 		                       .newHandler((in, out) -> out.sendWebsocket(
 				                       "NOT, Common",
 				                       (i, o) -> o.sendString(
-						                       Mono.just("SERVER:" + o.selectedSubprotocol()))))
-		                       .block(Duration.ofSeconds(30));
+						                       Flowable.just("SERVER:" + o.selectedSubprotocol()))))
+		                       .blockingSingle();
 
 		String res = HttpClient.create(httpServer.address().getPort())
 		                       .get("/test",
 				                out -> out.addHeader("Authorization", auth)
 				                          .sendWebsocket("Common,OTHER"))
 		                       .map(HttpClientResponse::receiveWebsocket)
-		                       .flatMapMany(in -> in.receive().asString()
+		                       .flatMap(in -> in.receive().asString()
 				                       .map(srv -> "CLIENT:" + in.selectedSubprotocol() + "-" + srv))
-		                       .log().collectList().block(Duration.ofSeconds(30)).get(0);
+		                       .toList().blockingGet().get(0);
 
 		Assert.assertThat(res, is("CLIENT:Common-SERVER:Common"));
 	}
@@ -290,8 +284,8 @@ public class WebsocketTest {
 	public void noSubprotocolSelected() {
 		httpServer = HttpServer.create(0)
 		                       .newHandler((in, out) -> out.sendWebsocket((i, o) -> o.sendString(
-				                       Mono.just("SERVER:" + o.selectedSubprotocol()))))
-		                       .block(Duration.ofSeconds(30));
+				                       Flowable.just("SERVER:" + o.selectedSubprotocol()))))
+		                       .blockingSingle();
 
 		String res = HttpClient.create(httpServer.address()
 		                                         .getPort())
@@ -299,12 +293,11 @@ public class WebsocketTest {
 				                       out -> out.addHeader("Authorization", auth)
 				                                 .sendWebsocket())
 		                       .map(HttpClientResponse::receiveWebsocket)
-		                       .flatMapMany(in -> in.receive()
+		                       .flatMap(in -> in.receive()
 		                                        .asString()
 		                                        .map(srv -> "CLIENT:" + in.selectedSubprotocol() + "-" + srv))
-		                       .log()
-		                       .collectList()
-		                       .block(Duration.ofSeconds(30))
+		                       .toList()
+		                       .blockingGet()
 		                       .get(0);
 
 		Assert.assertThat(res, is("CLIENT:null-SERVER:null"));
@@ -314,8 +307,8 @@ public class WebsocketTest {
 	public void anySubprotocolSelectsFirstClientProvided() {
 		httpServer = HttpServer.create(0)
 		                       .newHandler((in, out) -> out.sendWebsocket("proto2,*", (i, o) -> o.sendString(
-				                       Mono.just("SERVER:" + o.selectedSubprotocol()))))
-		                       .block(Duration.ofSeconds(30));
+				                       Flowable.just("SERVER:" + o.selectedSubprotocol()))))
+		                       .blockingSingle();
 
 		String res = HttpClient.create(httpServer.address()
 		                                         .getPort())
@@ -323,12 +316,11 @@ public class WebsocketTest {
 				                       out -> out.addHeader("Authorization", auth)
 				                                 .sendWebsocket("proto1, proto2"))
 		                       .map(HttpClientResponse::receiveWebsocket)
-		                       .flatMapMany(in -> in.receive()
+		                       .flatMap(in -> in.receive()
 		                                        .asString()
 		                                        .map(srv -> "CLIENT:" + in.selectedSubprotocol() + "-" + srv))
-		                       .log()
-		                       .collectList()
-		                       .block(Duration.ofSeconds(30))
+		                       .toList()
+		                       .blockingGet()
 		                       .get(0);
 
 		Assert.assertThat(res, is("CLIENT:proto1-SERVER:proto1"));
@@ -353,20 +345,19 @@ public class WebsocketTest {
 																		     .toFlowable();
 				                       })
 		                       )
-		                       .block(Duration.ofSeconds(30));
+		                       .blockingSingle();
 
 		HttpClient.create(httpServer.address()
 		                            .getPort())
 		          .ws("/test", "proto1,proto2")
-		          .flatMapMany(in -> {
+		          .flatMap(in -> {
 			          clientSelectedProtocolWhenSimplyUpgrading.set(in.receiveWebsocket().selectedSubprotocol());
 			          return in.receiveWebsocket((i, o) -> {
 				          clientSelectedProtocol.set(o.selectedSubprotocol());
-				          return o.sendString(Mono.just("HELLO" + o.selectedSubprotocol()));
+				          return o.sendString(Flowable.just("HELLO" + o.selectedSubprotocol()));
 			          });
 		          })
-							.then()
-		          .block(Duration.ofSeconds(30));
+							.blockingSubscribe();
 
 		Assert.assertTrue(latch.await(30, TimeUnit.SECONDS));
 		Assert.assertThat(serverSelectedProtocol.get(), is("proto1"));

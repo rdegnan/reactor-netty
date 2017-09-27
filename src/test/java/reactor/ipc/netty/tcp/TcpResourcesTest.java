@@ -27,7 +27,6 @@ import io.netty.channel.pool.ChannelPool;
 import io.reactivex.Flowable;
 import org.junit.Before;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 

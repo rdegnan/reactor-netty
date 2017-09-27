@@ -41,13 +41,13 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.CharsetUtil;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import io.reactivex.Maybe;
+import io.reactivex.processors.PublishProcessor;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
-import reactor.core.publisher.DirectProcessor;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.FutureFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.channel.AbortedException;
@@ -71,14 +71,14 @@ public class HttpClientTest {
 		                          .newHandler((in, out) -> in.receive()
 		                                                     .take(1)
 		                                                     .ignoreElements()
-		                                                     .andThen(Flux.defer(() ->
+		                                                     .andThen(Flowable.defer(() ->
 						                                                     out.context(c ->
 								                                                     c.addHandlerFirst(new HttpResponseEncoder()))
 						                                                        .sendObject(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.ACCEPTED))
-						                                                        .then(Mono.delay(Duration.ofSeconds(2)).then()))
+						                                                        .then(Completable.timer(2, TimeUnit.SECONDS).toFlowable()))
 		                                                     )
 		                          )
-		                          .block(Duration.ofSeconds(30));
+		                          .blockingSingle();
 
 		PoolResources pool = PoolResources.fixed("test", 1);
 
@@ -86,24 +86,21 @@ public class HttpClientTest {
 		                              .port(x.address().getPort())
 		                              .poolResources(pool))
 		                    .get("/")
-		                    .flatMap(r -> Mono.just(r.status()
+		                    .flatMap(r -> Flowable.just(r.status()
 		                                          .code()))
-		                    .log()
-		                    .block(Duration.ofSeconds(30));
+		                    .blockingSingle();
 
 		HttpClient.create(opts -> opts.host("localhost")
 		                              .port(x.address().getPort())
 		                              .poolResources(pool))
 		          .get("/")
-		          .log()
-		          .block(Duration.ofSeconds(30));
+		          .blockingSingle();
 
 		HttpClient.create(opts -> opts.host("localhost")
 		                              .port(x.address().getPort())
 		                              .poolResources(pool))
 		          .get("/")
-		          .log()
-		          .block(Duration.ofSeconds(30));
+		          .blockingSingle();
 
 	}
 
@@ -121,11 +118,11 @@ public class HttpClientTest {
 		NettyContext x = TcpServer.create("localhost", 0)
 		                          .newHandler((in, out) -> out.context(c -> c.addHandlerFirst(new
 				                          HttpResponseEncoder()))
-		                                                      .sendObject(Flux.just(
+		                                                      .sendObject(Flowable.just(
 				                                                      response(),
 				                                                      response()))
 		                                                      .neverComplete())
-		                          .block(Duration.ofSeconds(30));
+		                          .blockingSingle();
 
 		PoolResources pool = PoolResources.fixed("test", 1);
 
@@ -133,18 +130,16 @@ public class HttpClientTest {
 		                              .port(x.address().getPort())
 		                              .poolResources(pool))
 		                    .get("/")
-		                    .flatMap(r -> Mono.just(r.status()
+		                    .flatMap(r -> Flowable.just(r.status()
 		                                          .code()))
-		                    .log()
-		                    .block(Duration.ofSeconds(30));
+		                    .blockingSingle();
 
 		try {
 			HttpClient.create(opts -> opts.host("localhost")
 			                              .port(x.address().getPort())
 			                              .poolResources(pool))
 			          .get("/")
-			          .log()
-			          .block(Duration.ofSeconds(30));
+			          .blockingSingle();
 		}
 		catch (AbortedException ae) {
 			return;
@@ -158,27 +153,27 @@ public class HttpClientTest {
 		Path resource = Paths.get(getClass().getResource("/public").toURI());
 		NettyContext c = HttpServer.create(0)
 		                           .newRouter(routes -> routes.directory("/test", resource))
-		                           .block(Duration.ofSeconds(30));
+		                           .blockingSingle();
 
-		Mono<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
+		Flowable<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
 		                                            .get("/test/test.css");
 
-		Mono<String> page = remote
-				.flatMapMany(r -> r.receive()
+		Maybe<String> page = remote
+				.flatMap(r -> r.receive()
 				               .asString()
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		Mono<String> cancelledPage = remote
-				.flatMapMany(r -> r.receive()
+		Maybe<String> cancelledPage = remote
+				.flatMap(r -> r.receive()
 				               .asString()
 				               .take(5)
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		page.block(Duration.ofSeconds(30));
-		cancelledPage.block(Duration.ofSeconds(30));
-		page.block(Duration.ofSeconds(30));
+		page.blockingGet();
+		cancelledPage.blockingGet();
+		page.blockingGet();
 		c.dispose();
 	}
 
@@ -191,7 +186,7 @@ public class HttpClientTest {
 			                           req.context()
 			                              .onClose(latch::countDown);
 
-			                           return Flux.interval(Duration.ofSeconds(1))
+			                           return Flowable.interval(1, TimeUnit.SECONDS)
 			                                      .flatMap(d -> {
 				                                      req.context()
 				                                         .channel()
@@ -207,12 +202,12 @@ public class HttpClientTest {
 						                                                                      false));
 			                                      });
 		                           })
-		                           .block(Duration.ofSeconds(30));
+		                           .blockingSingle();
 
-		Mono<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
+		Flowable<HttpClientResponse> remote = HttpClient.create(c.address().getPort())
 		                                            .get("/");
 
-		HttpClientResponse r = remote.block();
+		HttpClientResponse r = remote.blockingSingle();
 		r.dispose();
 		while (r.channel()
 		        .isActive()) {
@@ -224,21 +219,21 @@ public class HttpClientTest {
 	@Test
 	@Ignore
 	public void proxy() throws Exception {
-		Mono<HttpClientResponse> remote = HttpClient.create(o -> o.proxy(ops -> ops.type(Proxy.HTTP)
+		Flowable<HttpClientResponse> remote = HttpClient.create(o -> o.proxy(ops -> ops.type(Proxy.HTTP)
 		                                                                           .host("127.0.0.1")
 		                                                                           .port(8888)))
 		          .get("https://projectreactor.io",
 				          c -> c.followRedirect()
 				                .sendHeaders());
 
-		Mono<String> page = remote
-				.flatMapMany(r -> r.receive()
+		Maybe<String> page = remote
+				.flatMap(r -> r.receive()
 				               .retain()
 				               .asString()
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		page.block(Duration.ofSeconds(30));
+		page.blockingGet();
 	}
 
 	@Test
@@ -248,33 +243,33 @@ public class HttpClientTest {
 		                                                             .host("127.0.0.1")
 		                                                             .port(8888)
 		                                                             .nonProxyHosts("spring.io")));
-		Mono<HttpClientResponse> remote1 = client.get("https://projectreactor.io",
+		Flowable<HttpClientResponse> remote1 = client.get("https://projectreactor.io",
 		                                                 c -> c.followRedirect()
 		                                                       .sendHeaders());
-		Mono<HttpClientResponse> remote2 = client.get("https://spring.io",
+		Flowable<HttpClientResponse> remote2 = client.get("https://spring.io",
 		                                                 c -> c.followRedirect()
 		                                                       .sendHeaders());
 
-		Mono<String> page1 = remote1
-				.flatMapMany(r -> r.receive()
+		Maybe<String> page1 = remote1
+				.flatMap(r -> r.receive()
 				               .retain()
 				               .asString()
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		Mono<String> page2 = remote2
-				.flatMapMany(r -> r.receive()
+		Maybe<String> page2 = remote2
+				.flatMap(r -> r.receive()
 				               .retain()
 				               .asString()
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		StepVerifier.create(page1)
+		StepVerifier.create(page1.toFlowable())
 		            .expectNextMatches(s -> s.contains("<title>Project Reactor</title>"))
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(30));
 
-		StepVerifier.create(page2)
+		StepVerifier.create(page2.toFlowable())
 		            .expectNextMatches(s -> s.contains("<title>Spring</title>"))
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(30));
@@ -293,17 +288,16 @@ public class HttpClientTest {
 				                                                .file("test2", f))
 																	.ignoreElements()
 																	.toFlowable())
-		                    .flatMap(r -> Mono.just(r.status()
+		                    .flatMap(r -> Flowable.just(r.status()
 		                                          .code()))
-		                    .block(Duration.ofSeconds(30));
+		                    .blockingSingle();
 		res = HttpClient.create("google.com")
 		                .get("/search",
 				                c -> c.followRedirect()
 				                      .sendHeaders())
-		                .flatMap(r -> Mono.just(r.status()
+		                .flatMap(r -> Flowable.just(r.status()
 		                                      .code()))
-		                .log()
-		                .block(Duration.ofSeconds(30));
+		                .blockingSingle();
 
 		if (res != 200) {
 			throw new IllegalStateException("test status failed with " + res);
@@ -316,13 +310,13 @@ public class HttpClientTest {
 		                    .get("/unsupportedURI",
 				                    c -> c.followRedirect()
 				                          .sendHeaders())
-		                    .flatMap(r -> Mono.just(r.status()
+		                    .flatMap(r -> Flowable.just(r.status()
 		                                          .code()))
-		                    .log()
-		                    .onErrorResume(HttpClientException.class,
-				                    e -> Mono.just(e.status()
-				                                    .code()))
-		                    .block(Duration.ofSeconds(30));
+		                    .onErrorResumeNext(e -> {
+													HttpClientException httpClientException = (HttpClientException) e;
+													return Flowable.just(httpClientException.status().code());
+												})
+		                    .blockingSingle();
 
 		if (res != 404) {
 			throw new IllegalStateException("test status failed with " + res);
@@ -335,8 +329,8 @@ public class HttpClientTest {
 		                                 .get("/unsupportedURI",
 				                                 c -> c.chunkedTransfer(false)
 				                                       .failOnClientError(false)
-				                                       .sendString(Flux.just("hello")))
-		                                 .block(Duration.ofSeconds(30));
+				                                       .sendString(Flowable.just("hello")))
+		                                 .blockingSingle();
 
 		FutureFlowable.from(r.context()
 		                 .channel()
@@ -354,7 +348,7 @@ public class HttpClientTest {
 				                                 c -> c.chunkedTransfer(false)
 				                                       .failOnClientError(false)
 				                                       .keepAlive(false))
-		                                 .block(Duration.ofSeconds(30));
+		                                 .blockingSingle();
 
 		FutureFlowable.from(r.context()
 		                 .channel()
@@ -373,13 +367,13 @@ public class HttpClientTest {
 		                                 .get("http://google.com/unsupportedURI",
 				                                 c -> c.failOnClientError(false)
 				                                       .sendHeaders())
-		                                 .block(Duration.ofSeconds(30));
+		                                 .blockingSingle();
 
 		HttpClientResponse r2 = HttpClient.create(opts -> opts.poolResources(p))
 		                                  .get("http://google.com/unsupportedURI",
 				                                  c -> c.failOnClientError(false)
 				                                        .sendHeaders())
-		                                  .block(Duration.ofSeconds(30));
+		                                  .blockingSingle();
 		Assert.assertTrue(r.context()
 		                   .channel() == r2.context()
 		                                   .channel());
@@ -393,7 +387,7 @@ public class HttpClientTest {
 		                                 .get("/unsupportedURI",
 				                                 c -> c.chunkedTransfer(false)
 				                                       .failOnClientError(false))
-		                                 .block(Duration.ofSeconds(30));
+		                                 .blockingSingle();
 
 		FutureFlowable.from(r.context()
 		                 .channel()
@@ -411,15 +405,15 @@ public class HttpClientTest {
 		                                 .get("http://google.com",
 				                                 c -> c.header("content-length", "1")
 				                                       .failOnClientError(false)
-				                                       .sendString(Mono.just(" ")))
-		                                 .block(Duration.ofSeconds(30));
+				                                       .sendString(Flowable.just(" ")))
+		                                 .blockingSingle();
 
 		HttpClient.create(opts -> opts.poolResources(fixed))
 		          .get("http://google.com",
 				          c -> c.header("content-length", "1")
 				                .failOnClientError(false)
-				                .sendString(Mono.just(" ")))
-		          .block(Duration.ofSeconds(30));
+				                .sendString(Flowable.just(" ")))
+		          .blockingSingle();
 
 		Assert.assertTrue(r.status() == HttpResponseStatus.BAD_REQUEST);
 	}
@@ -429,7 +423,7 @@ public class HttpClientTest {
 
 		StepVerifier.create(HttpClient.create()
 		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Mono.just(r.status().code()))
+		                              .flatMap(r -> Flowable.just(r.status().code()))
 		)
 		            .expectNextMatches(status -> status >= 200 && status < 400)
 		            .expectComplete()
@@ -437,7 +431,7 @@ public class HttpClientTest {
 
 		StepVerifier.create(HttpClient.create()
 		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Mono.just(r.status().code()))
+		                              .flatMap(r -> Flowable.just(r.status().code()))
 		)
 		            .expectNextMatches(status -> status >= 200 && status < 400)
 		            .expectComplete()
@@ -446,14 +440,13 @@ public class HttpClientTest {
 
 	@Test
 	public void prematureCancel() throws Exception {
-		DirectProcessor<Void> signal = DirectProcessor.create();
+		PublishProcessor<Void> signal = PublishProcessor.create();
 		NettyContext x = TcpServer.create("localhost", 0)
 		                          .newHandler((in, out) -> {
 										signal.onComplete();
 										return out.context(c -> c.addHandlerFirst(
 												new HttpResponseEncoder()))
-										          .sendObject(Mono.delay(Duration
-												          .ofSeconds(2))
+										          .sendObject(Flowable.timer(2, TimeUnit.SECONDS)
 												          .map(t ->
 												          new DefaultFullHttpResponse(
 														          HttpVersion.HTTP_1_1,
@@ -461,11 +454,13 @@ public class HttpClientTest {
 																          .PROCESSING)))
 												.neverComplete();
 		                          })
-		                          .block(Duration.ofSeconds(30));
+		                          .blockingSingle();
 
 		StepVerifier.create(HttpClient.create(x.address().getHostName(), x.address().getPort())
 		                              .get("/")
+		                              .singleElement()
 		                              .timeout(signal)
+		                              .toFlowable()
 		)
 		            .verifyError(TimeoutException.class);
 //		Thread.sleep(1000000);
@@ -480,9 +475,9 @@ public class HttpClientTest {
 						          .addHeader("Accept-Encoding", "gzip")
 						          .addHeader("Accept-Encoding", "deflate")
 				          )
-				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+				          .flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
 				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new).toFlowable()))
+																	SimpleImmutableEntry::new))
 		)
 		            .expectNextMatches(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
 				            && "gzip".equals(tuple.getValue()))
@@ -497,9 +492,9 @@ public class HttpClientTest {
 					          return req.addHeader("Accept-Encoding", "gzip")
 					                    .addHeader("Accept-Encoding", "deflate");
 				          })
-				          .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+				          .flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
 				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new).toFlowable()))
+																	SimpleImmutableEntry::new))
 		)
 		            .expectNextMatches(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
 				            && "".equals(tuple.getValue()))
@@ -521,12 +516,12 @@ public class HttpClientTest {
 		String expectedResponse = gzipEnabled ? "gzip" : "no gzip";
 		NettyContext server = HttpServer.create(0)
 		        .newHandler((req,res) -> res.sendString(
-		                Mono.just(req.requestHeaders().get(HttpHeaderNames.ACCEPT_ENCODING, "no gzip"))))
-		        .block(Duration.ofSeconds(30));
+		                Flowable.just(req.requestHeaders().get(HttpHeaderNames.ACCEPT_ENCODING, "no gzip"))))
+		        .blockingSingle();
 		StepVerifier.create(
 		        HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
 		                  .get("/")
-		                  .flatMap(r -> Mono.from(r.receive().asString().elementAt(0).toFlowable()))
+		                  .flatMapMaybe(r -> r.receive().asString().elementAt(0))
 		        )
 		            .expectNextMatches(str -> expectedResponse.equals(str))
 		            .expectComplete()
@@ -546,11 +541,11 @@ public class HttpClientTest {
 
 			                           return resp;
 		                           })
-		                           .block();
+		                           .blockingSingle();
 
 		HttpClient.create(c.address().getPort())
 		          .get("/")
-		          .block();
+		          .blockingSubscribe();
 
 		c.dispose();
 	}
@@ -584,15 +579,15 @@ public class HttpClientTest {
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
-				          .newHandler((req, resp) -> resp.sendString(Flux.just("hello ", req.uri())))
-				          .block();
+				          .newHandler((req, resp) -> resp.sendString(Flowable.just("hello ", req.uri())))
+				          .blockingSingle();
 
 
 		HttpClientResponse response = HttpClient.create(
 				opt -> opt.port(context.address().getPort())
 				          .sslContext(sslClient))
 		                                        .get("/foo")
-		                                        .block(Duration.ofMillis(200));
+		                                        .blockingSingle();
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
 
@@ -609,15 +604,15 @@ public class HttpClientTest {
 
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
-				          .newHandler((req, resp) -> resp.sendString(Flux.just("hello ", req.uri())))
-				          .block();
+				          .newHandler((req, resp) -> resp.sendString(Flowable.just("hello ", req.uri())))
+				          .blockingSingle();
 
 		HttpClientResponse response = HttpClient.create(
 				opt -> opt.port(context.address().getPort())
 				          .sslContext(sslClient)
 		)
 		                                        .get("https://localhost:" + context.address().getPort() + "/foo")
-		                                        .block();
+		                                        .blockingSingle();
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
 
@@ -642,14 +637,14 @@ public class HttpClientTest {
 						             .asString(StandardCharsets.UTF_8)
 						             .doOnSuccess(uploaded::set)
 												 .ignoreElement()
-						             .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
-				          .block();
+						             .andThen(resp.status(201).sendString(Flowable.just("Received File")).then())))
+				          .blockingSingle();
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort())
 				                            .sslContext(sslClient))
 				          .post("/upload", r -> r.sendFile(largeFile))
-				          .block(Duration.ofSeconds(120));
+				          .blockingSingle();
 
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
@@ -678,13 +673,13 @@ public class HttpClientTest {
 								          .asString(StandardCharsets.UTF_8)
 								          .doOnSuccess(uploaded::set)
 													.ignoreElement()
-								          .andThen(resp.status(201).sendString(Mono.just("Received File")).then())))
-				          .block();
+								          .andThen(resp.status(201).sendString(Flowable.just("Received File")).then())))
+				          .blockingSingle();
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
 				          .post("/upload", r -> r.sendFile(largeFile))
-				          .block(Duration.ofSeconds(120));
+				          .blockingSingle();
 
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
@@ -710,23 +705,23 @@ public class HttpClientTest {
 				                                                         .sendHeaders())
 				                           .get("/200", (req, res) -> res.addHeader("Content-Length", "0")
 				                                                         .sendHeaders()))
-				          .block(Duration.ofSeconds(30));
+				          .blockingSingle();
 
 		HttpClientResponse response1 =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
 				          .put("/201", req -> req.sendHeaders())
-				          .block();
+				          .blockingSingle();
 		//response1.dispose();
 
 		HttpClientResponse response2 =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
 				          .put("/204", req -> req.sendHeaders())
-				          .block(Duration.ofSeconds(30));
+				          .blockingSingle();
 
 		HttpClientResponse response3 =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
 				          .get("/200", req -> req.sendHeaders())
-				          .block(Duration.ofSeconds(30));
+				          .blockingSingle();
 		//response3.dispose();
 	}
 }

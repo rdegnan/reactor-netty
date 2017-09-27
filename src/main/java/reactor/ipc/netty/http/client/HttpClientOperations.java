@@ -72,8 +72,6 @@ import reactor.ipc.netty.http.Cookies;
 import reactor.ipc.netty.http.HttpOperations;
 import reactor.ipc.netty.http.websocket.WebsocketInbound;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * @author Stephane Maldini
@@ -485,9 +483,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			return;
 		}
 		if (markSentHeaderAndBody()) {
-			if (log.isDebugEnabled()) {
-				log.debug("No sendHeaders() called before complete, sending " + "zero-length header");
-			}
 			channel().writeAndFlush(newFullEmptyBodyMessage());
 		}
 		else if (markSentBody()) {
@@ -517,12 +512,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 				return;
 			}
 			if (started) {
-				if (log.isDebugEnabled()) {
-					log.debug("{} An HttpClientOperations cannot proceed more than one "
-									+ "Response", channel(),
-							response.headers()
-							        .toString());
-				}
 				return;
 			}
 			started = true;
@@ -535,17 +524,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 				ReferenceCountUtil.release(msg);
 				return;
 			}
-
-
-			if (log.isDebugEnabled()) {
-				log.debug("{} Received response (auto-read:{}) : {}",
-						channel(),
-						channel().config()
-						         .isAutoRead(),
-						responseHeaders().entries()
-						                 .toString());
-			}
-
 			if (checkResponseCode(response)) {
 				prefetchMore(ctx);
 				parentContext().fireContextActive(this);
@@ -558,14 +536,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		}
 		if (msg instanceof LastHttpContent) {
 			if (!started) {
-				if (log.isDebugEnabled()) {
-					log.debug("{} HttpClientOperations received an incorrect end " +
-							"delimiter" + "(previously used connection?)", channel());
-				}
 				return;
-			}
-			if (log.isDebugEnabled()) {
-				log.debug("{} Received last HTTP packet", channel());
 			}
 			if (msg != LastHttpContent.EMPTY_LAST_CONTENT) {
 				super.onInboundNext(ctx, msg);
@@ -577,14 +548,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		}
 
 		if (!started) {
-			if (log.isDebugEnabled()) {
-				if (msg instanceof ByteBufHolder) {
-					msg = ((ByteBufHolder) msg).content();
-				}
-				log.debug("{} HttpClientOperations received an incorrect chunk " + "" +
-								"(previously used connection?)",
-						channel(), msg);
-			}
 			return;
 		}
 		super.onInboundNext(ctx, msg);
@@ -601,11 +564,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 		                   .code();
 		if (code >= 500) {
 			if (serverError){
-				if (log.isDebugEnabled()) {
-					log.debug("{} Received Server Error, stop reading: {}", channel(),
-							response
-									.toString());
-				}
 				Exception ex = new HttpClientException(uri(), response);
 				parentContext().fireContextError(ex);
 				onHandlerTerminate();
@@ -616,11 +574,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 		if (code >= 400) {
 			if (clientError) {
-				if (log.isDebugEnabled()) {
-					log.debug("{} Received Request Error, stop reading: {}",
-							channel(),
-							response.toString());
-				}
 				Exception ex = new HttpClientException(uri(), response);
 				parentContext().fireContextError(ex);
 				onHandlerTerminate();
@@ -629,13 +582,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 			return true;
 		}
 		if (code == 301 || code == 302 && isFollowRedirect()) {
-			if (log.isDebugEnabled()) {
-				log.debug("{} Received Redirect location: {}",
-						channel(),
-						response.headers()
-						        .entries()
-						        .toString());
-			}
 			Exception ex = new RedirectClientException(uri(), response);
 			parentContext().fireContextError(ex);
 			onHandlerTerminate();
@@ -712,9 +658,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 				}
 				return handshake;
 			}
-		}
-		else {
-			log.error("Cannot enable websocket if headers have already been sent");
 		}
 		return Flowable.error(new IllegalStateException("Failed to upgrade to websocket"));
 	}
@@ -829,8 +772,6 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 	static final int                    MAX_REDIRECTS      = 50;
 	static final String[]               EMPTY_REDIRECTIONS = new String[0];
-	static final Logger                 log                =
-			Loggers.getLogger(HttpClientOperations.class);
 	static final AttributeKey<String[]> REDIRECT_ATTR_KEY  =
 			AttributeKey.newInstance("httpRedirects");
 }

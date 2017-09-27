@@ -36,7 +36,7 @@ import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.NetUtil;
-import reactor.core.Exceptions;
+import io.reactivex.exceptions.Exceptions;
 import reactor.ipc.netty.resources.LoopResources;
 import reactor.ipc.netty.resources.PoolResources;
 
@@ -361,7 +361,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 				return sslContext(builder.build());
 			}
 			catch (Exception sslException) {
-				throw Exceptions.bubble(sslException);
+				throw Exceptions.propagate(sslException);
 			}
 		}
 

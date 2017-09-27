@@ -174,10 +174,6 @@ final class HttpClientWSOperations extends HttpClientOperations
 		}
 		if (msg instanceof CloseWebSocketFrame &&
 				((CloseWebSocketFrame)msg).isFinalFragment()) {
-			if (log.isDebugEnabled()) {
-				log.debug("CloseWebSocketFrame detected. Closing Websocket");
-			}
-
 			CloseWebSocketFrame close = (CloseWebSocketFrame) msg;
 			sendClose(new CloseWebSocketFrame(true,
 					close.rsv(),
@@ -195,9 +191,6 @@ final class HttpClientWSOperations extends HttpClientOperations
 
 	@Override
 	protected void onInboundCancel() {
-		if (log.isDebugEnabled()) {
-			log.debug("Cancelling Websocket inbound. Closing Websocket");
-		}
 		sendClose(null);
 	}
 
@@ -226,9 +219,6 @@ final class HttpClientWSOperations extends HttpClientOperations
 
 	@Override
 	public void accept(Throwable throwable) {
-		if (log.isDebugEnabled()) {
-			log.debug("Handler terminated. Closing Websocket");
-		}
 		if (throwable == null) {
 			if (channel().isActive()) {
 				sendClose(null);

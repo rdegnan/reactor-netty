@@ -54,8 +54,6 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.reactivex.Flowable;
 import org.junit.Test;
 import org.testng.Assert;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.ByteBufFlowable;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyOutbound;
@@ -129,14 +127,14 @@ public class HttpServerTests {
 		NettyContext context =
 				HttpServer.create(opt -> opt.sslContext(sslServer))
 				          .newHandler((req, resp) -> resp.sendFile(largeFile))
-				          .block();
+				          .blockingSingle();
 
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort())
 				                            .sslContext(sslClient))
 				          .get("/foo")
-				          .block(Duration.ofSeconds(120));
+				          .blockingSingle();
 
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
@@ -187,13 +185,13 @@ public class HttpServerTests {
 		NettyContext context =
 				HttpServer.create(opt -> opt.host("localhost"))
 				          .newHandler((req, resp) -> fn.apply(resp))
-				          .block();
+				          .blockingSingle();
 
 
 		HttpClientResponse response =
 				HttpClient.create(opt -> opt.port(context.address().getPort()))
 				          .get("/foo")
-				          .block(Duration.ofSeconds(120));
+				          .blockingSingle();
 
 		context.dispose();
 		context.onClose().ignoreElements().blockingAwait();
@@ -213,9 +211,9 @@ public class HttpServerTests {
 		NettyContext context = HttpServer.create(8080)
 		                                 .newHandler((req, resp) -> resp.status(200)
 		                                                                .send())
-		                                 .block();
+		                                 .blockingSingle();
 
-		HttpClientResponse response = HttpClient.create(8080).get("/").block();
+		HttpClientResponse response = HttpClient.create(8080).get("/").blockingSingle();
 
 		// checking the response status, OK
 		assertThat(response.status().code()).isEqualTo(200);
@@ -228,9 +226,9 @@ public class HttpServerTests {
 
 		// create a totally new server instance, with a different handler that answers HTTP 201
 		context = HttpServer.create(8080)
-		                    .newHandler((req, resp) -> resp.status(201).send()).block();
+		                    .newHandler((req, resp) -> resp.status(201).send()).blockingSingle();
 
-		response = HttpClient.create(8080).get("/").block();
+		response = HttpClient.create(8080).get("/").blockingSingle();
 
 		// fails, response status is 200 and debugging shows the the previous handler is called
 		assertThat(response.status().code()).isEqualTo(201);
@@ -241,13 +239,13 @@ public class HttpServerTests {
 	@Test
 	public void errorResponseAndReturn() throws Exception {
 		NettyContext c = HttpServer.create(0)
-		                           .newHandler((req, resp) -> Mono.error(new Exception("returnError")))
-		                           .block();
+		                           .newHandler((req, resp) -> Flowable.error(new Exception("returnError")))
+		                           .blockingSingle();
 
 		assertThat(HttpClient.create(c.address()
 		                              .getPort())
 		                     .get("/return", r -> r.failOnServerError(false))
-		                     .block()
+		                     .blockingSingle()
 		                     .status()
 		                     .code()).isEqualTo(500);
 
@@ -262,12 +260,10 @@ public class HttpServerTests {
 
 		NettyContext c = HttpServer.create(0)
 		                           .newHandler((req, resp) -> resp.header(HttpHeaderNames.CONTENT_LENGTH, "1")
-		                                                          .sendString(Mono.just(i.incrementAndGet())
-		                                                                          .flatMap(d -> Mono.delay(
-				                                                                          Duration.ofSeconds(
-						                                                                          4 - d))
+		                                                          .sendString(Flowable.just(i.incrementAndGet())
+		                                                                          .flatMap(d -> Flowable.timer(4 - d, TimeUnit.SECONDS)
 		                                                                                         .map(x -> d + "\n"))))
-		                           .block(Duration.ofSeconds(30));
+		                           .blockingSingle();
 
 		DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1,
 				HttpMethod.GET,
@@ -292,12 +288,12 @@ public class HttpServerTests {
 				           }
 			           });
 
-			         return out.sendObject(Flux.just(request.retain(),
+			         return out.sendObject(Flowable.just(request.retain(),
 					         request.retain(),
 					         request.retain()))
 			                   .neverComplete();
 		         })
-		         .block(Duration.ofSeconds(30));
+		         .blockingSingle();
 
 		Assert.assertTrue(latch.await(45, TimeUnit.SECONDS));
 
@@ -306,23 +302,23 @@ public class HttpServerTests {
 	@Test
 	public void flushOnComplete() {
 
-		Flux<String> test = Flux.range(0, 100)
+		Flowable<String> test = Flowable.range(0, 100)
 		                        .map(n -> String.format("%010d", n));
 
 		NettyContext c = HttpServer.create(0)
 		                           .newHandler((req, resp) -> resp.sendString(test.map(s -> s + "\n")))
-		                           .block(Duration.ofSeconds(30));
+		                           .blockingSingle();
 
 		Flowable<String> client = HttpClient.create(c.address()
 		                                         .getPort())
 		                                .get("/")
-		                                .block(Duration.ofSeconds(30))
+		                                .blockingSingle()
 		                                .addHandler(new LineBasedFrameDecoder(10))
 		                                .receive()
 		                                .asString();
 
 		StepVerifier.create(client)
-		            .expectNextSequence(test.toIterable())
+		            .expectNextSequence(test.blockingIterable())
 		            .expectComplete()
 		            .verify(Duration.ofSeconds(30));
 	}
@@ -332,44 +328,44 @@ public class HttpServerTests {
 		Path resource = Paths.get(getClass().getResource("/public").toURI());
 		NettyContext c = HttpServer.create(0)
 		                           .newRouter(routes -> routes.directory("/test", resource))
-		                           .block(Duration.ofSeconds(30));
+		                           .blockingSingle();
 
 		HttpResources.set(PoolResources.fixed("http", 1));
 
 		HttpClientResponse response0 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/index.html")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response1 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/test.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response2 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/test1.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response3 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/test2.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response4 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/test3.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response5 = HttpClient.create(c.address()
 		                                                  .getPort())
 		                                         .get("/test/test4.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		HttpClientResponse response6 = HttpClient.create(opts -> opts.port(c.address().getPort())
 		                                                             .disablePool())
 		                                         .get("/test/test5.css")
-		                                         .block(Duration.ofSeconds(30));
+		                                         .blockingSingle();
 
 		Assert.assertEquals(response0.channel(), response1.channel());
 		Assert.assertEquals(response0.channel(), response2.channel());
@@ -403,18 +399,18 @@ public class HttpServerTests {
 	public void startRouter() {
 		BlockingNettyContext facade = HttpServer.create(0)
 		                                        .startRouter(routes -> routes.get("/hello",
-				                                        (req, resp) -> resp.sendString(Mono.just("hello!"))));
+				                                        (req, resp) -> resp.sendString(Flowable.just("hello!"))));
 
 		try {
 			assertThat(HttpClient.create(facade.getPort())
 			                     .get("/hello")
-			                     .block()
+			                     .blockingSingle()
 			                     .status()
 			                     .code()).isEqualTo(200);
 
 			assertThat(HttpClient.create(facade.getPort())
 			                     .get("/helloMan", req -> req.failOnClientError(false))
-			                     .block()
+			                     .blockingSingle()
 			                     .status()
 			                     .code()).isEqualTo(404);
 		}
@@ -430,7 +426,7 @@ public class HttpServerTests {
 		AtomicReference<BlockingNettyContext> ref = new AtomicReference<>();
 
 		Future<?> f = ex.submit(() -> HttpServer.create(0)
-		                                        .startRouterAndAwait(routes -> routes.get("/hello", (req, resp) -> resp.sendString(Mono.just("hello!"))),
+		                                        .startRouterAndAwait(routes -> routes.get("/hello", (req, resp) -> resp.sendString(Flowable.just("hello!"))),
 				                                        ref::set)
 		);
 
@@ -461,7 +457,7 @@ public class HttpServerTests {
 				                           .get("/304-1", (req, res) -> res.status(HttpResponseStatus.NOT_MODIFIED)
 				                                                           .sendHeaders())
 				                           .get("/304-2", (req, res) -> res.status(HttpResponseStatus.NOT_MODIFIED)))
-				          .block(Duration.ofSeconds(30));
+				          .blockingSingle();
 
 		int port = server.address().getPort();
 		checkResponse("/204-1", port);
@@ -475,10 +471,10 @@ public class HttpServerTests {
 	}
 
 	private void checkResponse(String url, int port) {
-		Mono<HttpHeaders> response =
+		Flowable<HttpHeaders> response =
 				HttpClient.create(ops -> ops.port(port))
 				          .get(url)
-				          .flatMap(res -> Mono.just(res.responseHeaders()));
+				          .flatMap(res -> Flowable.just(res.responseHeaders()));
 
 		StepVerifier.create(response)
 		            .expectNextMatches(h -> !h.contains("Transfer-Encoding") &&
