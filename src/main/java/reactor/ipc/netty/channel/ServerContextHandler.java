@@ -24,6 +24,8 @@ import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.logging.LoggingHandler;
+import io.reactivex.functions.Action;
+import io.reactivex.internal.functions.Functions;
 import reactor.core.publisher.MonoSink;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.options.ServerOptions;
@@ -84,8 +86,8 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 	}
 
 	@Override
-	public NettyContext onClose(Runnable onClose) {
-		onClose().subscribe(null, e -> onClose.run(), onClose);
+	public NettyContext onClose(Action onClose) {
+		onClose().subscribe(Functions.emptyConsumer(), e -> onClose.run(), onClose);
 		return this;
 	}
 

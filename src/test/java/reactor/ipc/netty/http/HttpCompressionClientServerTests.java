@@ -57,8 +57,7 @@ public class HttpCompressionClientServerTests {
 		      .block();
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -82,8 +81,7 @@ public class HttpCompressionClientServerTests {
 		Assert.assertEquals("reply", reply);
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -109,8 +107,7 @@ public class HttpCompressionClientServerTests {
 		                   .blockingFirst();
 		Assert.assertEquals("reply", reply);
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -150,8 +147,7 @@ public class HttpCompressionClientServerTests {
 		assertThat(deflated).isEqualTo("reply");
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -181,8 +177,7 @@ public class HttpCompressionClientServerTests {
 		                   .blockingFirst();
 		Assert.assertEquals("reply", reply);
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -222,8 +217,7 @@ public class HttpCompressionClientServerTests {
 		assertThat(deflated).isEqualTo("reply");
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test
@@ -249,8 +243,7 @@ public class HttpCompressionClientServerTests {
 		assertThat(reply).isEqualTo(serverReply);
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 
@@ -275,8 +268,7 @@ public class HttpCompressionClientServerTests {
 		assertThat(reply).isEqualTo("reply");
 
 		nettyContext.dispose();
-		nettyContext.onClose()
-		            .block();
+		nettyContext.onClose().ignoreElements().blockingAwait();
 	}
 
 	@Test

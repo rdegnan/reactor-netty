@@ -30,6 +30,7 @@ import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.codec.http.websocketx.Utf8FrameValidator;
+import io.reactivex.functions.Action;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -421,7 +422,7 @@ public class NettyContextTest {
 			}
 
 			@Override
-			public NettyContext onClose(Runnable onClose) {
+			public NettyContext onClose(Action onClose) {
 				closeCount.incrementAndGet();
 				return this;
 			}
@@ -451,7 +452,7 @@ public class NettyContextTest {
 			}
 
 			@Override
-			public NettyContext onClose(Runnable onClose) {
+			public NettyContext onClose(Action onClose) {
 				closeCount.incrementAndGet();
 				return this;
 			}

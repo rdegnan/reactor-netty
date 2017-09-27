@@ -17,13 +17,12 @@
 package reactor.ipc.netty.tcp;
 
 import java.net.InetSocketAddress;
-import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.reactivex.Flowable;
 import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 /**
  * Wrap a {@link NettyContext} obtained from a {@link Mono} and offer methods to manage
@@ -33,27 +32,26 @@ import reactor.util.Loggers;
  */
 public class BlockingNettyContext {
 
-	private static final Logger LOG = Loggers.getLogger(BlockingNettyContext.class);
-
 	private final NettyContext context;
 	private final String description;
 
-	private Duration lifecycleTimeout;
+	private long lifecycleTimeout;
+	private TimeUnit unit;
 	private Thread shutdownHook;
 
 	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
-			String description) {
-		this(contextAsync, description, Duration.ofSeconds(3));
+															String description) {
+		this(contextAsync, description, 3, TimeUnit.SECONDS);
 	}
 
 	public BlockingNettyContext(Mono<? extends NettyContext> contextAsync,
-			String description, Duration lifecycleTimeout) {
+															String description, long lifecycleTimeout, TimeUnit unit) {
 		this.description = description;
 		this.lifecycleTimeout = lifecycleTimeout;
-		this.context = contextAsync
-				.timeout(lifecycleTimeout, Mono.error(new TimeoutException(description + " couldn't be started within " + lifecycleTimeout.toMillis() + "ms")))
-				.doOnNext(ctx -> LOG.info("Started {} on {}", description, ctx.address()))
-				.block();
+		this.unit = unit;
+		this.context = Flowable.fromPublisher(contextAsync)
+				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description + " couldn't be started within " + unit.toMillis(lifecycleTimeout) + "ms")))
+				.blockingSingle();
 	}
 
 	/**
@@ -62,8 +60,9 @@ public class BlockingNettyContext {
 	 *
 	 * @param timeout the new timeout to apply on shutdown.
 	 */
-	public void setLifecycleTimeout(Duration timeout) {
+	public void setLifecycleTimeout(long timeout, TimeUnit unit) {
 		this.lifecycleTimeout = timeout;
+		this.unit = unit;
 	}
 
 	/**
@@ -135,7 +134,7 @@ public class BlockingNettyContext {
 
 	/**
 	 * Shut down the {@link NettyContext} and wait for its termination, up to the
-	 * {@link #setLifecycleTimeout(Duration) lifecycle timeout}.
+	 * {@link #setLifecycleTimeout(long, TimeUnit) lifecycle timeout}.
 	 */
 	public void shutdown() {
 		if (context.isDisposed()) {
@@ -146,10 +145,9 @@ public class BlockingNettyContext {
 
 		context.dispose();
 		context.onClose()
-		       .doOnError(e -> LOG.error("Stopped {} on {} with an error {}", description, context.address(), e))
-		       .doOnTerminate(() -> LOG.info("Stopped {} on {}", description, context.address()))
-		       .timeout(lifecycleTimeout, Mono.error(new TimeoutException(description + " couldn't be stopped within " + lifecycleTimeout.toMillis() + "ms")))
-		       .block();
+				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description + " couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
+				.ignoreElements()
+				.blockingAwait();
 	}
 
 	protected void shutdownFromJVM() {
@@ -157,16 +155,11 @@ public class BlockingNettyContext {
 			return;
 		}
 
-		final String hookDesc = Thread.currentThread().toString();
-
 		context.dispose();
 		context.onClose()
-		       .doOnError(e -> LOG.error("Stopped {} on {} with an error {} from JVM hook {}",
-				       description, context.address(), e, hookDesc))
-		       .doOnTerminate(() -> LOG.info("Stopped {} on {} from JVM hook {}",
-				       description, context.address(), hookDesc))
-		       .timeout(lifecycleTimeout, Mono.error(new TimeoutException(description +
-				       " couldn't be stopped within " + lifecycleTimeout.toMillis() + "ms")))
-		       .block();
+				.timeout(lifecycleTimeout, unit, Flowable.error(new TimeoutException(description +
+						" couldn't be stopped within " + unit.toMillis(lifecycleTimeout) + "ms")))
+				.ignoreElements()
+				.blockingAwait();
 	}
 }

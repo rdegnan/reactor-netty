@@ -594,7 +594,7 @@ public class HttpClientTest {
 		                                        .get("/foo")
 		                                        .block(Duration.ofMillis(200));
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
@@ -619,7 +619,7 @@ public class HttpClientTest {
 		                                        .get("https://localhost:" + context.address().getPort() + "/foo")
 		                                        .block();
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		String responseString = response.receive().aggregate().asString(CharsetUtil.UTF_8).blockingGet();
 		assertThat(responseString).isEqualTo("hello /foo");
@@ -652,7 +652,7 @@ public class HttpClientTest {
 				          .block(Duration.ofSeconds(120));
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);
@@ -687,7 +687,7 @@ public class HttpClientTest {
 				          .block(Duration.ofSeconds(120));
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		String responseBody = response.receive().aggregate().asString().blockingGet();
 		assertThat(response.status().code()).isEqualTo(201);

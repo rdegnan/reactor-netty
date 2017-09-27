@@ -184,7 +184,8 @@ public class TcpClientTests {
 				         )
 				         .block(Duration.ofSeconds(15))
 				         .onClose()
-				         .block(Duration.ofSeconds(30));
+				         .ignoreElements()
+				         .blockingAwait(30, TimeUnit.SECONDS);
 
 		assertTrue("Expected messages not received. Received " + strings.size() + " messages: " + strings,
 				latch.await(15, TimeUnit.SECONDS));
@@ -202,7 +203,8 @@ public class TcpClientTests {
 		client.newHandler((in, out) -> Mono.empty())
 		      .block(Duration.ofSeconds(30))
 		      .onClose()
-		      .block(Duration.ofSeconds(30));
+		      .ignoreElements()
+		      .blockingAwait(30, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -265,8 +267,10 @@ public class TcpClientTests {
 			handler.log()
 			       .block(Duration.ofSeconds(30))
 			       .onClose()
-			       .then(handler.doOnSuccess(s -> reconnectionLatch.countDown()))
-			       .block(Duration.ofSeconds(30));
+			       .ignoreElements()
+			       .andThen(handler.doOnSuccess(s -> reconnectionLatch.countDown()))
+			       .ignoreElements()
+			       .blockingAwait(30, TimeUnit.SECONDS);
 
 			assertTrue("Initial connection is made", connectionLatch.await(5, TimeUnit.SECONDS));
 			assertTrue("A reconnect attempt was made", reconnectionLatch.await(5, TimeUnit.SECONDS));

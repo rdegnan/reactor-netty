@@ -19,11 +19,13 @@ package reactor.ipc.netty.tcp;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.netty.channel.Channel;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.reactivex.Flowable;
 import org.junit.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -47,8 +49,8 @@ public class BlockingNettyContextTest {
 		}
 
 		@Override
-		public Mono<Void> onClose() {
-			return Mono.never();
+		public Flowable<Void> onClose() {
+			return Flowable.never();
 		}
 	};
 
@@ -64,8 +66,8 @@ public class BlockingNettyContextTest {
 		}
 
 		@Override
-		public Mono<Void> onClose() {
-			return Mono.empty();
+		public Flowable<Void> onClose() {
+			return Flowable.empty();
 		}
 	};
 
@@ -159,7 +161,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStart() {
 		assertThatExceptionOfType(RuntimeException.class)
-				.isThrownBy(() -> new BlockingNettyContext(Mono.never(), "TEST NEVER START", Duration.ofMillis(100)))
+				.isThrownBy(() -> new BlockingNettyContext(Mono.never(), "TEST NEVER START", 100, TimeUnit.MILLISECONDS))
 				.withCauseExactlyInstanceOf(TimeoutException.class)
 				.withMessage("java.util.concurrent.TimeoutException: TEST NEVER START couldn't be started within 100ms");
 	}
@@ -167,7 +169,7 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStop() {
 		final BlockingNettyContext neverStop =
-				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", Duration.ofMillis(100));
+				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 100, TimeUnit.MILLISECONDS);
 
 		assertThatExceptionOfType(RuntimeException.class)
 				.isThrownBy(neverStop::shutdown)
@@ -178,9 +180,9 @@ public class BlockingNettyContextTest {
 	@Test
 	public void testTimeoutOnStopChangedTimeout() {
 		final BlockingNettyContext neverStop =
-				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", Duration.ofMillis(500));
+				new BlockingNettyContext(Mono.just(NEVER_STOP_CONTEXT), "TEST NEVER STOP", 500, TimeUnit.MILLISECONDS);
 
-		neverStop.setLifecycleTimeout(Duration.ofMillis(100));
+		neverStop.setLifecycleTimeout(100, TimeUnit.MILLISECONDS);
 
 		assertThatExceptionOfType(RuntimeException.class)
 				.isThrownBy(neverStop::shutdown)

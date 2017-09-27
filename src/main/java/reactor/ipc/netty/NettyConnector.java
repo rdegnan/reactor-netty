@@ -127,6 +127,7 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 
 		facade.getContext()
 		      .onClose()
-		      .block();
+					.ignoreElements()
+		      .blockingAwait();
 	}
 }

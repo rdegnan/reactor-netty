@@ -22,6 +22,9 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOutboundHandler;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.reactivex.Flowable;
+import io.reactivex.functions.Action;
+import io.reactivex.internal.functions.Functions;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
@@ -238,8 +241,8 @@ public interface NettyContext extends Disposable {
 	 *
 	 * @return a {@link Mono} terminating with success if shutdown successfully or error
 	 */
-	default Mono<Void> onClose(){
-		return Mono.fromDirect(FutureFlowable.from(channel().closeFuture()));
+	default Flowable<Void> onClose(){
+		return FutureFlowable.from(channel().closeFuture());
 	}
 
 	/**
@@ -249,8 +252,8 @@ public interface NettyContext extends Disposable {
 	 *
 	 * @return {@literal this}
 	 */
-	default NettyContext onClose(Runnable onClose){
-		onClose().subscribe(null, e -> onClose.run(), onClose);
+	default NettyContext onClose(Action onClose){
+		onClose().subscribe(Functions.emptyConsumer(), e -> onClose.run(), onClose);
 		return this;
 	}
 

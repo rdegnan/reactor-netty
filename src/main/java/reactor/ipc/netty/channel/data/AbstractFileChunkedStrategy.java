@@ -16,8 +16,7 @@
 
 package reactor.ipc.netty.channel.data;
 
-import java.io.RandomAccessFile;
-
+import java.nio.channels.FileChannel;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyPipeline;

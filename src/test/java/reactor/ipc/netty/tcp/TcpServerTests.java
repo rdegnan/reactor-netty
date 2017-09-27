@@ -342,7 +342,8 @@ public class TcpServerTests {
 				                       .flatMapMany(repliesOut -> out.send(repliesOut.receive()))))
 		      .block(Duration.ofSeconds(30))
 		      .onClose()
-		      .block(Duration.ofSeconds(30));
+		      .ignoreElements()
+		      .blockingAwait(30, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -358,7 +359,8 @@ public class TcpServerTests {
 				                                                                       .window(100)))))
 		      .block(Duration.ofSeconds(30))
 		      .onClose()
-		      .block(Duration.ofSeconds(30));
+		      .ignoreElements()
+		      .blockingAwait(30, TimeUnit.SECONDS);
 	}
 
 	@Test
@@ -431,13 +433,13 @@ public class TcpServerTests {
 		String client2Response = m2.block();
 
 		client1.dispose();
-		client1.onClose().block();
+		client1.onClose().ignoreElements().blockingAwait();
 
 		client2.dispose();
-		client2.onClose().block();
+		client2.onClose().ignoreElements().blockingAwait();
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		Assertions.assertThat(client1Response).isEqualTo("NOPE");
 
@@ -534,13 +536,13 @@ public class TcpServerTests {
 		String client2Response = m2.block();
 
 		client1.dispose();
-		client1.onClose().block();
+		client1.onClose().ignoreElements().blockingAwait();
 
 		client2.dispose();
-		client2.onClose().block();
+		client2.onClose().ignoreElements().blockingAwait();
 
 		context.dispose();
-		context.onClose().block();
+		context.onClose().ignoreElements().blockingAwait();
 
 		Assertions.assertThat(client1Response).isEqualTo("NOPE");
 
