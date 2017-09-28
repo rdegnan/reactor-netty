@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2016 Pivotal Software Inc, All Rights Reserved.
+ * Copyright (c) 2011-2017 Pivotal Software Inc, All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,4 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-rootProject.name = 'rxnetty'
+
+/**
+ * Provider or Netty reusable component given various RxNetty parameters, for
+ * clients
+ * and servers.
+ * This will produce {@link io.netty.bootstrap.Bootstrap} and
+ * {@link io.netty.bootstrap.ServerBootstrap} along with some specific helper like
+ * {@link io.netty.channel.pool.ChannelPool}.
+ */
+package io.reactivex.netty.options;

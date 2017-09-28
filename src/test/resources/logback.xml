@@ -33,11 +33,9 @@
         </encoder>
     </appender>
 
-	<!--<logger name="reactor" level="DEBUG"/>-->
-    <!--<logger name="reactor" level="INFO"/>-->
-    <logger name="reactor.ipc.netty" level="DEBUG" />
-    <logger name="reactor.ipc.netty.http.client.HttpClient" level="DEBUG" />
-    <logger name="reactor.ipc.netty.http.server.HttpServer" level="DEBUG" />
+    <logger name="io.reactivex.netty" level="DEBUG" />
+    <logger name="io.reactivex.netty.http.client.HttpClient" level="DEBUG" />
+    <logger name="io.reactivex.netty.http.server.HttpServer" level="DEBUG" />
 
     <root level="info">
         <appender-ref ref="stdout"/>

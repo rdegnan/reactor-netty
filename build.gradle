@@ -78,7 +78,7 @@ ext {
 
 
 configure(rootProject) { project ->
-  group = 'io.projectreactor.ipc'
+  group = 'io.reactivex'
 
   apply plugin: 'java'
   apply plugin: 'jacoco'
@@ -150,8 +150,6 @@ configure(rootProject) { project ->
 
   project.tasks.withType(Test).all {
 	systemProperty("java.awt.headless", "true")
-	systemProperty("reactor.trace.cancel", "true")
-	systemProperty("reactor.trace.nocapacity", "true")
 	systemProperty("testGroups", project.properties.get("testGroups"))
 	scanForTestClasses = false
 	include '**/*Tests.*'
