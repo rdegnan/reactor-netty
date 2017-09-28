@@ -15,12 +15,10 @@
  */
 package reactor.ipc.netty.resources;
 
-import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Flowable;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,15 +43,23 @@ public class DefaultLoopResourcesTest {
 
 		assertThat(loopResources.isDisposed()).isFalse();
 
-		Duration firstInvocation = StepVerifier.create(loopResources.disposeLater())
-		                                       .verifyComplete();
+		long firstInvocation = System.currentTimeMillis();
+		loopResources.disposeLater()
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertComplete();
+
 		assertThat(loopResources.isDisposed()).isTrue();
 		assertThat(loopResources.serverLoops.isTerminated()).isTrue();
 
-		Duration secondInvocation = StepVerifier.create(loopResources.disposeLater())
-		                                        .verifyComplete();
+		long secondInvocation = System.currentTimeMillis();
+		loopResources.disposeLater()
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertComplete();
 
-		assertThat(secondInvocation).isLessThan(firstInvocation);
+		assertThat(System.currentTimeMillis() - secondInvocation)
+				.isLessThan(secondInvocation - firstInvocation);
 	}
 
 }

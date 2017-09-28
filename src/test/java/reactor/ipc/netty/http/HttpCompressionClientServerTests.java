@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.GZIPInputStream;
 
 import io.netty.handler.codec.http.HttpHeaders;
+import io.reactivex.Flowable;
 import org.junit.Assert;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
@@ -43,7 +43,7 @@ public class HttpCompressionClientServerTests {
 		                                            .compression(true));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		HttpClient client = HttpClient.create(o -> o.compression(true)
@@ -64,7 +64,7 @@ public class HttpCompressionClientServerTests {
 		HttpServer server = HttpServer.create(0);
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		HttpClient client = HttpClient.create(o -> o.connectAddress(() -> address(nettyContext)));
@@ -89,7 +89,7 @@ public class HttpCompressionClientServerTests {
 		                                            .compression(false));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		//don't activate compression on the client options to avoid auto-handling (which removes the header)
@@ -115,7 +115,7 @@ public class HttpCompressionClientServerTests {
 		                                            .compression(true));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		//don't activate compression on the client options to avoid auto-handling (which removes the header)
@@ -155,7 +155,7 @@ public class HttpCompressionClientServerTests {
 		                                            .compression(25));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		//don't activate compression on the client options to avoid auto-handling (which removes the header)
@@ -185,7 +185,7 @@ public class HttpCompressionClientServerTests {
 		                                            .compression(4));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		//don't activate compression on the client options to avoid auto-handling (which removes the header)
@@ -226,7 +226,7 @@ public class HttpCompressionClientServerTests {
 
 		String serverReply = "reply";
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just(serverReply)))
+				server.newHandler((in, out) -> out.sendString(Flowable.just(serverReply)))
 				      .blockingSingle();
 
 		HttpClient client = HttpClient.create(o -> o.compression(false)
@@ -251,7 +251,7 @@ public class HttpCompressionClientServerTests {
 		HttpServer server = HttpServer.create(o -> o.port(0));
 
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 
 		HttpClient client = HttpClient.create(o -> o.connectAddress(() -> address(nettyContext)));
@@ -276,7 +276,7 @@ public class HttpCompressionClientServerTests {
 
 		HttpServer server = HttpServer.create(o -> o.port(0).compression(true));
 		NettyContext nettyContext =
-				server.newHandler((in, out) -> out.sendString(Mono.just("reply")))
+				server.newHandler((in, out) -> out.sendString(Flowable.just("reply")))
 				      .blockingSingle();
 		HttpClient client = HttpClient.create(opt -> opt.compression(true)
 		                                                .connectAddress(() -> address(nettyContext)));

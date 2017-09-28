@@ -34,7 +34,6 @@ import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.server.HttpServerRequest;
 import reactor.ipc.netty.http.server.HttpServerResponse;
-import reactor.util.Loggers;
 
 /**
  * @author tjreactive
@@ -160,9 +159,6 @@ public class PostAndGetTests {
 			ByteBuffer buf = ByteBuffer.allocate(4 * 1024);
 			while (channel.read(buf) > -1) {
 			}
-			String response = new String(buf.array());
-			Loggers.getLogger(PostAndGetTests.class)
-			       .info("post: << " + "Response: %s", response);
 			channel.close();
 		}
 		catch (IOException e) {

@@ -46,6 +46,7 @@ import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.MaybeSubject;
 import org.assertj.core.api.Assertions;
 import org.junit.After;
@@ -53,7 +54,6 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
-import reactor.core.scheduler.Schedulers;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.NettyInbound;
 import reactor.ipc.netty.NettyOutbound;
@@ -61,8 +61,6 @@ import reactor.ipc.netty.NettyPipeline;
 import reactor.ipc.netty.SocketUtils;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.server.HttpServer;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertNotNull;
@@ -74,7 +72,6 @@ import static org.junit.Assert.assertTrue;
  */
 public class TcpServerTests {
 
-	final Logger log = Loggers.getLogger(TcpServerTests.class);
 	ExecutorService threadPool;
 	final int msgs    = 10;
 	final int threads = 4;
@@ -93,7 +90,7 @@ public class TcpServerTests {
 	@After
 	public void cleanup() {
 		threadPool.shutdownNow();
-		Schedulers.shutdownNow();
+		Schedulers.shutdown();
 	}
 
 	@Test
@@ -219,7 +216,6 @@ public class TcpServerTests {
 			in.receive()
 			  .asString()
 			  .subscribe(data -> {
-				  log.info("data " + data + " on " + in);
 				  latch.countDown();
 			  });
 			return Flowable.never();

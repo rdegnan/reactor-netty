@@ -46,8 +46,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.SocketUtils;
-import reactor.util.Logger;
-import reactor.util.Loggers;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -56,8 +54,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
  * @author Stephane Maldini
  */
 public class UdpServerTests {
-
-	final Logger log = Loggers.getLogger(getClass());
 
 	ExecutorService threadPool;
 
@@ -126,7 +122,6 @@ public class UdpServerTests {
 
 		final InetAddress multicastGroup = InetAddress.getByName("230.0.0.1");
 		final NetworkInterface multicastInterface = findMulticastEnabledIPv4Interface();
-		log.info("Using network interface '{}' for multicast", multicastInterface);
 		final Collection<NettyContext> servers = new ArrayList<>();
 
 		for (int i = 0; i < 4; i++) {

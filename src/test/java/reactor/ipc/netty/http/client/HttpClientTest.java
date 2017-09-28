@@ -55,7 +55,6 @@ import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.options.ClientProxyOptions.Proxy;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.TcpServer;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -264,15 +263,15 @@ public class HttpClientTest {
 				               .rebatchRequests(1))
 				.reduce(String::concat);
 
-		StepVerifier.create(page1.toFlowable())
-		            .expectNextMatches(s -> s.contains("<title>Project Reactor</title>"))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		page1.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(s -> s.contains("<title>Project Reactor</title>"))
+				.assertComplete();
 
-		StepVerifier.create(page2.toFlowable())
-		            .expectNextMatches(s -> s.contains("<title>Spring</title>"))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		page2.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(s -> s.contains("<title>Spring</title>"))
+				.assertComplete();
 	}
 
 	//@Test
@@ -420,22 +419,21 @@ public class HttpClientTest {
 
 	@Test
 	public void simpleTestHttps() {
+		HttpClient.create()
+				.get("https://developer.chrome.com")
+				.flatMap(r -> Flowable.just(r.status().code()))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(status -> status >= 200 && status < 400)
+				.assertComplete();
 
-		StepVerifier.create(HttpClient.create()
-		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Flowable.just(r.status().code()))
-		)
-		            .expectNextMatches(status -> status >= 200 && status < 400)
-		            .expectComplete()
-		            .verify();
-
-		StepVerifier.create(HttpClient.create()
-		                              .get("https://developer.chrome.com")
-		                              .flatMap(r -> Flowable.just(r.status().code()))
-		)
-		            .expectNextMatches(status -> status >= 200 && status < 400)
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("https://developer.chrome.com")
+				.flatMap(r -> Flowable.just(r.status().code()))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(status -> status >= 200 && status < 400)
+				.assertComplete();
 	}
 
 	@Test
@@ -456,50 +454,47 @@ public class HttpClientTest {
 		                          })
 		                          .blockingSingle();
 
-		StepVerifier.create(HttpClient.create(x.address().getHostName(), x.address().getPort())
-		                              .get("/")
-		                              .singleElement()
-		                              .timeout(signal)
-		                              .toFlowable()
-		)
-		            .verifyError(TimeoutException.class);
-//		Thread.sleep(1000000);
+		HttpClient.create(x.address().getHostName(), x.address().getPort())
+				.get("/")
+				.singleElement()
+				.timeout(signal)
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertError(TimeoutException.class);
 	}
 
 	@Test
 	public void gzip() {
 		//verify gzip is negotiated (when no decoder)
-		StepVerifier.create(
-				HttpClient.create()
-				          .get("http://www.httpwatch.com", req -> req
-						          .addHeader("Accept-Encoding", "gzip")
-						          .addHeader("Accept-Encoding", "deflate")
-				          )
-				          .flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new))
-		)
-		            .expectNextMatches(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
-				            && "gzip".equals(tuple.getValue()))
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("http://www.httpwatch.com", req -> req
+						.addHeader("Accept-Encoding", "gzip")
+						.addHeader("Accept-Encoding", "deflate")
+				)
+				.flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+										.zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+												SimpleImmutableEntry::new))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(tuple -> !tuple.getKey().contains("<html>") && !tuple.getKey().contains("<head>")
+						&& "gzip".equals(tuple.getValue()))
+				.assertComplete();
 
 		//verify decoder does its job and removes the header
-		StepVerifier.create(
-				HttpClient.create()
-				          .get("http://www.httpwatch.com", req -> {
-					          req.context().addHandlerFirst("gzipDecompressor", new HttpContentDecompressor());
-					          return req.addHeader("Accept-Encoding", "gzip")
-					                    .addHeader("Accept-Encoding", "deflate");
-				          })
-				          .flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
-				                      .zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
-																	SimpleImmutableEntry::new))
-		)
-		            .expectNextMatches(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
-				            && "".equals(tuple.getValue()))
-		            .expectComplete()
-		            .verify();
+		HttpClient.create()
+				.get("http://www.httpwatch.com", req -> {
+					req.context().addHandlerFirst("gzipDecompressor", new HttpContentDecompressor());
+					return req.addHeader("Accept-Encoding", "gzip")
+										.addHeader("Accept-Encoding", "deflate");
+				})
+				.flatMapMaybe(r -> r.receive().asString().elementAt(0).map(s -> s.substring(0, 100))
+										.zipWith(Maybe.just(r.responseHeaders().get("Content-Encoding", "")),
+												SimpleImmutableEntry::new))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(tuple -> tuple.getKey().contains("<html>") && tuple.getKey().contains("<head>")
+						&& "".equals(tuple.getValue()))
+				.assertComplete();
 	}
 
 	@Test
@@ -518,14 +513,14 @@ public class HttpClientTest {
 		        .newHandler((req,res) -> res.sendString(
 		                Flowable.just(req.requestHeaders().get(HttpHeaderNames.ACCEPT_ENCODING, "no gzip"))))
 		        .blockingSingle();
-		StepVerifier.create(
-		        HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
-		                  .get("/")
-		                  .flatMapMaybe(r -> r.receive().asString().elementAt(0))
-		        )
-		            .expectNextMatches(str -> expectedResponse.equals(str))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+
+		HttpClient.create(ops -> ops.port(server.address().getPort()).compression(gzipEnabled))
+				.get("/")
+				.flatMapMaybe(r -> r.receive().asString().elementAt(0))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(str -> expectedResponse.equals(str))
+				.assertComplete();
 	}
 
 	@Test

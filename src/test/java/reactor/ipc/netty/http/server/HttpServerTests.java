@@ -63,7 +63,6 @@ import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.ipc.netty.resources.PoolResources;
 import reactor.ipc.netty.tcp.BlockingNettyContext;
 import reactor.ipc.netty.tcp.TcpClient;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
@@ -317,10 +316,10 @@ public class HttpServerTests {
 		                                .receive()
 		                                .asString();
 
-		StepVerifier.create(client)
-		            .expectNextSequence(test.blockingIterable())
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		client.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValueSequence(test.blockingIterable())
+				.assertComplete();
 	}
 
 	@Test
@@ -476,11 +475,11 @@ public class HttpServerTests {
 				          .get(url)
 				          .flatMap(res -> Flowable.just(res.responseHeaders()));
 
-		StepVerifier.create(response)
-		            .expectNextMatches(h -> !h.contains("Transfer-Encoding") &&
-		                                     h.contains("Content-Length") &&
-		                                     Integer.parseInt(h.get("Content-Length")) == 0)
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		response.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(h -> !h.contains("Transfer-Encoding") &&
+		                       h.contains("Content-Length") &&
+		                       Integer.parseInt(h.get("Content-Length")) == 0)
+				.assertComplete();
 	}
 }

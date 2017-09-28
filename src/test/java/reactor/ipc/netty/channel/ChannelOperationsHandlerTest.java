@@ -21,13 +21,13 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.EncoderException;
 import io.reactivex.Flowable;
 import org.junit.Test;
 import reactor.ipc.netty.FutureFlowable;
@@ -36,7 +36,6 @@ import reactor.ipc.netty.SocketUtils;
 import reactor.ipc.netty.http.client.HttpClient;
 import reactor.ipc.netty.http.client.HttpClientResponse;
 import reactor.ipc.netty.http.server.HttpServer;
-import reactor.test.StepVerifier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -59,10 +58,10 @@ public class ChannelOperationsHandlerTest {
 				HttpClient.create(server.address().getPort())
 				          .post("/", req -> req.sendString(flux));
 
-		StepVerifier.create(client)
-		            .expectNextMatches(res -> res.status().code() == 200)
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		client.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertValue(res -> res.status().code() == 200)
+				.assertComplete();
 	}
 
 	@Test
@@ -84,9 +83,10 @@ public class ChannelOperationsHandlerTest {
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 
-		StepVerifier.create(FutureFlowable.deferFuture(() -> channel.writeAndFlush(Flowable.range(0, 70))))
-		            .expectComplete()
-		            .verify(Duration.ofSeconds(30));
+		FutureFlowable.deferFuture(() -> channel.writeAndFlush(Flowable.range(0, 70)))
+				.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertComplete();
 
 		assertThat(handler.prefetch == (handler.inner.requested - handler.inner.produced)).isTrue();
 	}
@@ -111,9 +111,9 @@ public class ChannelOperationsHandlerTest {
 						          req -> req.sendHeaders()
 						                    .sendString(Flowable.just("a", "b", "c")));
 
-		StepVerifier.create(response)
-		            .expectError()
-		            .verify();
+		response.test()
+				.awaitDone(30, TimeUnit.SECONDS)
+				.assertError(EncoderException.class);
 
 		abortServer.close();
 	}

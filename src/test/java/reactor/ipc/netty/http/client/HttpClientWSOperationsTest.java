@@ -18,6 +18,7 @@ package reactor.ipc.netty.http.client;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Flowable;
 import org.junit.Test;
@@ -25,7 +26,6 @@ import org.junit.Test;
 import reactor.ipc.netty.NettyContext;
 import reactor.ipc.netty.http.server.HttpServer;
 import reactor.ipc.netty.http.websocket.WebsocketOutbound;
-import reactor.test.StepVerifier;
 
 /**
  * @author Violeta Georgieva
@@ -90,16 +90,16 @@ public class HttpClientWSOperationsTest {
 
 
 		if (clientError || serverError) {
-			StepVerifier.create(response)
-			            .expectError()
-			            .verify(Duration.ofSeconds(30));
+			response.test()
+					.awaitDone(30, TimeUnit.SECONDS)
+					.assertError(Exception.class);
 		}
 		else {
-			StepVerifier.create(response)
-			            .assertNext(res ->
-			                assertThat(res.status().code()).isEqualTo(serverStatus == 200 ? 101 : serverStatus))
-			            .expectComplete()
-			            .verify(Duration.ofSeconds(30));
+			response.test()
+					.awaitDone(30, TimeUnit.SECONDS)
+					.assertValue(res ->
+							res.status().code() == (serverStatus == 200 ? 101 : serverStatus))
+					.assertComplete();
 		}
 	}
 

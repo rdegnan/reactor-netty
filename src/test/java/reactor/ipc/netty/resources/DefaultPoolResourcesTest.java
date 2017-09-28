@@ -27,7 +27,6 @@ import io.netty.util.concurrent.Promise;
 import io.reactivex.Flowable;
 import org.junit.Before;
 import org.junit.Test;
-import reactor.core.publisher.Mono;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
