@@ -16,10 +16,9 @@
 
 package io.reactivex.netty.http;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import io.netty.buffer.ByteBuf;
@@ -42,6 +41,7 @@ import io.netty.handler.stream.ChunkedNioFile;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.FutureFlowable;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.NettyPipeline;
@@ -161,8 +161,8 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 	protected abstract HttpMessage newFullEmptyBodyMessage();
 
 	@Override
-	public final NettyOutbound sendFile(Path file, long position, long count) {
-		Objects.requireNonNull(file);
+	public final NettyOutbound sendFile(File file, long position, long count) {
+		ObjectHelper.requireNonNull(file, "file");
 
 		if (hasSentHeaders()) {
 			return super.sendFile(file, position, count);

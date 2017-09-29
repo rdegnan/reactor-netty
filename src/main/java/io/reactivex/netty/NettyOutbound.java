@@ -17,14 +17,12 @@
 package io.reactivex.netty;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.buffer.ByteBuf;
@@ -37,6 +35,7 @@ import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.channel.data.AbstractFileChunkedStrategy;
 import io.reactivex.netty.channel.data.FileChunkedStrategy;
 import org.reactivestreams.Publisher;
@@ -171,7 +170,7 @@ public interface NettyOutbound extends Publisher<Void> {
 	}
 
 	/**
-	 * Send content from given {@link Path} using
+	 * Send content from given {@link File} using
 	 * {@link java.nio.channels.FileChannel#transferTo(long, long, WritableByteChannel)}
 	 * support. If the system supports it and the path resolves to a local file
 	 * system {@link File} then transfer will use zero-byte copy
@@ -190,17 +189,17 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * @return A Publisher to signal successful sequence write (e.g. after "flush") or any
 	 * error during write
 	 */
-	default NettyOutbound sendFile(Path file) {
+	default NettyOutbound sendFile(File file) {
 		try {
-			return sendFile(file, 0L, Files.size(file));
+			return sendFile(file, 0L, file.length());
 		}
-		catch (IOException e) {
+		catch (Throwable e) {
 			return then(Flowable.error(e));
 		}
 	}
 
 	/**
-	 * Send content from given {@link Path} using
+	 * Send content from given {@link File} using
 	 * {@link java.nio.channels.FileChannel#transferTo(long, long, WritableByteChannel)}
 	 * support. If the system supports it and the path resolves to a local file
 	 * system {@link File} then transfer will use zero-byte copy
@@ -214,20 +213,20 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * Note: this will emit {@link io.netty.channel.FileRegion} in the outbound
 	 * {@link io.netty.channel.ChannelPipeline}
 	 *
-	 * @param file the file Path
+	 * @param file the file
 	 * @param position where to start
 	 * @param count how much to transfer
 	 *
 	 * @return A Publisher to signal successful sequence write (e.g. after "flush") or any
 	 * error during write
 	 */
-	default NettyOutbound sendFile(Path file, long position, long count) {
-		Objects.requireNonNull(file);
+	default NettyOutbound sendFile(File file, long position, long count) {
+		ObjectHelper.requireNonNull(file, "file");
 		if (context().channel().pipeline().get(SslHandler.class) != null) {
 			return sendFileChunked(file, position, count);
 		}
 
-		return then(Flowable.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+		return then(Flowable.using(() -> new FileInputStream(file).getChannel(),
 				fc -> FutureFlowable.from(context().channel().writeAndFlush(new DefaultFileRegion(fc, position, count))),
 				fc -> {
 					try {
@@ -237,15 +236,15 @@ public interface NettyOutbound extends Publisher<Void> {
 				}, false));
 	}
 
-	default NettyOutbound sendFileChunked(Path file, long position, long count) {
-		Objects.requireNonNull(file);
+	default NettyOutbound sendFileChunked(File file, long position, long count) {
+		ObjectHelper.requireNonNull(file, "file");
 		final FileChunkedStrategy strategy = getFileChunkedStrategy();
 		final boolean needChunkedWriteHandler = context().channel().pipeline().get(NettyPipeline.ChunkedWriter) == null;
 		if (needChunkedWriteHandler) {
 			strategy.preparePipeline(context());
 		}
 
-		return then(Flowable.using(() -> FileChannel.open(file, StandardOpenOption.READ),
+		return then(Flowable.using(() -> new FileInputStream(file).getChannel(),
 				fc -> {
 						try {
 							ChunkedInput<?> message = strategy.chunkFile(fc);

@@ -17,6 +17,7 @@
 package io.reactivex.netty;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
@@ -120,7 +121,7 @@ public class NettyOutboundTest {
 		};
 		channel.writeOneOutbound(1);
 
-		outbound.sendFile(Paths.get(getClass().getResource("/largeFile.txt").toURI()))
+		outbound.sendFile(new File(getClass().getResource("/largeFile.txt").toURI()))
 		        .then().blockingSubscribe();
 
 		assertThat(channel.inboundMessages()).isEmpty();
@@ -187,7 +188,7 @@ public class NettyOutboundTest {
 		channel.writeOneOutbound(1);
 
 		try{
-			outbound.sendFile(Paths.get(getClass().getResource("/largeFile.txt").toURI()))
+			outbound.sendFile(new File(getClass().getResource("/largeFile.txt").toURI()))
 			        .then()
 			        .ignoreElements()
 			        .blockingAwait(1, TimeUnit.SECONDS); //TODO investigate why this hangs
@@ -249,10 +250,10 @@ public class NettyOutboundTest {
 				return FILE_CHUNKED_STRATEGY_1024_NOPIPELINE;
 			}
 		};
-		Path path = Paths.get(getClass().getResource("/largeFile.txt").toURI());
+		File file = new File(getClass().getResource("/largeFile.txt").toURI());
 
 		channel.writeOneOutbound(1);
-		outbound.sendFileChunked(path, 0, Files.size(path))
+		outbound.sendFileChunked(file, 0, file.length())
 		        .then().blockingSubscribe();
 
 		assertThat(channel.inboundMessages()).isEmpty();

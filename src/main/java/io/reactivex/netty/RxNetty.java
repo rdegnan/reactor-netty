@@ -15,7 +15,6 @@
  */
 package io.reactivex.netty;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import io.netty.buffer.ByteBuf;
@@ -31,6 +30,7 @@ import io.netty.util.AttributeKey;
 import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiConsumer;
+import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 
 /**
@@ -57,8 +57,8 @@ final class RxNetty {
 	 */
 	static void addHandlerBeforeRxNettyEndHandlers(NettyContext context, String
 			name, ChannelHandler handler) {
-		Objects.requireNonNull(name, "name");
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(name, "name");
+		ObjectHelper.requireNonNull(handler, "handler");
 
 		Channel channel = context.channel();
 		boolean exists = channel.pipeline().get(name) != null;
@@ -102,8 +102,8 @@ final class RxNetty {
 	static void addHandlerAfterRxNettyCodecs(NettyContext context, String
 			name,
 			ChannelHandler handler) {
-		Objects.requireNonNull(name, "name");
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(name, "name");
+		ObjectHelper.requireNonNull(handler, "handler");
 
 		Channel channel = context.channel();
 		boolean exists = channel.pipeline().get(name) != null;
@@ -272,7 +272,7 @@ final class RxNetty {
 		final BiConsumer<? super ChannelHandlerContext, Object> extractor;
 
 		ExtractorHandler(BiConsumer<? super ChannelHandlerContext, Object> extractor) {
-			this.extractor = Objects.requireNonNull(extractor, "extractor");
+			this.extractor = ObjectHelper.requireNonNull(extractor, "extractor");
 		}
 
 		@Override

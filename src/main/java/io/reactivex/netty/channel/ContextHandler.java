@@ -19,7 +19,6 @@ package io.reactivex.netty.channel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
@@ -34,6 +33,7 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Cancellable;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.options.ClientOptions;
 import io.reactivex.netty.options.ServerOptions;
@@ -162,7 +162,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 			LoggingHandler loggingHandler,
 			SocketAddress providedAddress) {
 		this.channelOpFactory =
-				Objects.requireNonNull(channelOpFactory, "channelOpFactory");
+				ObjectHelper.requireNonNull(channelOpFactory, "channelOpFactory");
 		this.options = options;
 		this.sink = sink;
 		this.loggingHandler = loggingHandler;
@@ -182,7 +182,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 	 */
 	public final ContextHandler<CHANNEL> onPipeline(BiConsumer<ChannelPipeline, ContextHandler<Channel>> pipelineConfigurator) {
 		this.pipelineConfigurator =
-				Objects.requireNonNull(pipelineConfigurator, "pipelineConfigurator");
+				ObjectHelper.requireNonNull(pipelineConfigurator, "pipelineConfigurator");
 		return this;
 	}
 

@@ -21,7 +21,6 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -59,6 +58,7 @@ import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.EmptySubscription;
 import io.reactivex.netty.FutureFlowable;
 import io.reactivex.netty.NettyContext;
@@ -414,7 +414,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 	@Override
 	public Flowable<Void> receiveWebsocket(String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
-		Objects.requireNonNull(websocketHandler, "websocketHandler");
+		ObjectHelper.requireNonNull(websocketHandler, "websocketHandler");
 		return withWebsocketSupport(websocketUri(), protocols, websocketHandler);
 	}
 

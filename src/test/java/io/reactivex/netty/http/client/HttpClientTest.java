@@ -16,6 +16,7 @@
 
 package io.reactivex.netty.http.client;
 
+import java.io.File;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -148,7 +149,7 @@ public class HttpClientTest {
 
 	@Test
 	public void backpressured() throws Exception {
-		Path resource = Paths.get(getClass().getResource("/public").toURI());
+		File resource = new File(getClass().getResource("/public").toURI());
 		NettyContext c = HttpServer.create(0)
 		                           .newRouter(routes -> routes.directory("/test", resource))
 		                           .blockingSingle();
@@ -617,7 +618,7 @@ public class HttpClientTest {
 	@Test
 	public void secureSendFile()
 			throws CertificateException, SSLException, URISyntaxException {
-		Path largeFile = Paths.get(getClass().getResource("/largeFile.txt").toURI());
+		File largeFile = new File(getClass().getResource("/largeFile.txt").toURI());
 		SelfSignedCertificate ssc = new SelfSignedCertificate();
 		SslContext sslServer = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
 		SslContext sslClient = SslContextBuilder.forClient().trustManager(ssc.cert()).build();
@@ -655,7 +656,7 @@ public class HttpClientTest {
 
 	@Test
 	public void chunkedSendFile() throws URISyntaxException {
-		Path largeFile = Paths.get(getClass().getResource("/largeFile.txt").toURI());
+		File largeFile = new File(getClass().getResource("/largeFile.txt").toURI());
 		AtomicReference<String> uploaded = new AtomicReference<>();
 
 		NettyContext context =

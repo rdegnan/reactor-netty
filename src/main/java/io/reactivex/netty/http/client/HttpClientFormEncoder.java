@@ -22,7 +22,6 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 import io.netty.buffer.ByteBufAllocator;
@@ -37,6 +36,7 @@ import io.netty.handler.codec.http.multipart.MemoryFileUpload;
 import io.netty.handler.stream.ChunkedInput;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.Action;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.processors.PublishProcessor;
 
 /**
@@ -114,7 +114,7 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 
 	@Override
 	public HttpClientRequest.Form charset(Charset charset) {
-		this.newCharset = Objects.requireNonNull(charset, "charset");
+		this.newCharset = ObjectHelper.requireNonNull(charset, "charset");
 		this.needNewEncoder = true;
 		return this;
 	}
@@ -132,7 +132,7 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 					"starting appending Parts, call factory(f) at the earliest occasion" +
 					" offered");
 		}
-		this.newFactory = Objects.requireNonNull(factory, "factory");
+		this.newFactory = ObjectHelper.requireNonNull(factory, "factory");
 		this.needNewEncoder = true;
 		return applyChanges(request);
 	}
@@ -154,9 +154,9 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 			String filename,
 			File file,
 			String contentType) {
-		Objects.requireNonNull(name, "name");
-		Objects.requireNonNull(file, "file");
-		Objects.requireNonNull(filename, "filename");
+		ObjectHelper.requireNonNull(name, "name");
+		ObjectHelper.requireNonNull(file, "file");
+		ObjectHelper.requireNonNull(filename, "filename");
 		String scontentType = contentType;
 		if (contentType == null) {
 			scontentType = DEFAULT_BINARY_CONTENT_TYPE;
@@ -186,8 +186,8 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 			String filename,
 			InputStream stream,
 			String contentType) {
-		Objects.requireNonNull(name, "name");
-		Objects.requireNonNull(stream, "stream");
+		ObjectHelper.requireNonNull(name, "name");
+		ObjectHelper.requireNonNull(stream, "stream");
 		try {
 			String scontentType = contentType;
 			if (contentType == null) {
@@ -238,7 +238,7 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 
 	@Override
 	public HttpClientRequest.Form encoding(EncoderMode mode) {
-		this.newMode = Objects.requireNonNull(mode, "mode");
+		this.newMode = ObjectHelper.requireNonNull(mode, "mode");
 		this.needNewEncoder = true;
 		return this;
 	}
@@ -277,8 +277,8 @@ final class HttpClientFormEncoder extends HttpPostRequestEncoder
 	public HttpClientRequest.Form textFile(String name,
 			InputStream stream,
 			String contentType) {
-		Objects.requireNonNull(name, "name");
-		Objects.requireNonNull(stream, "stream");
+		ObjectHelper.requireNonNull(name, "name");
+		ObjectHelper.requireNonNull(stream, "stream");
 		try {
 			String scontentType = contentType;
 

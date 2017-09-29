@@ -19,7 +19,6 @@ package io.reactivex.netty.options;
 import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -35,6 +34,7 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AttributeKey;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyContext;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.resources.LoopResources;
@@ -178,7 +178,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 			return null;
 		}
 
-		Objects.requireNonNull(allocator, "allocator");
+		ObjectHelper.requireNonNull(allocator, "allocator");
 		SslHandler sslHandler;
 		if (sniInfo != null && sniInfo.getKey() != null && sniInfo.getValue() != null) {
 			sslHandler = sslContext.newHandler(allocator, sniInfo.getKey(), sniInfo.getValue());
@@ -358,7 +358,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER loopResources(LoopResources channelResources) {
-			this.loopResources = Objects.requireNonNull(channelResources, "loopResources");
+			this.loopResources = ObjectHelper.requireNonNull(channelResources, "loopResources");
 			return get();
 		}
 
@@ -373,7 +373,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER eventLoopGroup(EventLoopGroup eventLoopGroup) {
-			Objects.requireNonNull(eventLoopGroup, "eventLoopGroup");
+			ObjectHelper.requireNonNull(eventLoopGroup, "eventLoopGroup");
 			return loopResources(preferNative -> eventLoopGroup);
 		}
 
@@ -385,7 +385,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER channelGroup(ChannelGroup channelGroup) {
-			this.channelGroup = Objects.requireNonNull(channelGroup, "channelGroup");
+			this.channelGroup = ObjectHelper.requireNonNull(channelGroup, "channelGroup");
 			//the channelGroup being set, afterChannelInit will be augmented to add
 			//each channel to the group, when actual Options are constructed
 			return get();
@@ -410,7 +410,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER sslHandshakeTimeout(Duration sslHandshakeTimeout) {
-			Objects.requireNonNull(sslHandshakeTimeout, "sslHandshakeTimeout");
+			ObjectHelper.requireNonNull(sslHandshakeTimeout, "sslHandshakeTimeout");
 			return sslHandshakeTimeoutMillis(sslHandshakeTimeout.toMillis());
 		}
 
@@ -437,7 +437,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER sslCloseNotifyFlushTimeout(Duration sslCloseNotifyFlushTimeout) {
-			Objects.requireNonNull(sslCloseNotifyFlushTimeout, "sslCloseNotifyFlushTimeout");
+			ObjectHelper.requireNonNull(sslCloseNotifyFlushTimeout, "sslCloseNotifyFlushTimeout");
 			return sslCloseNotifyFlushTimeoutMillis(sslCloseNotifyFlushTimeout.toMillis());
 		}
 
@@ -467,7 +467,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public final BUILDER sslCloseNotifyReadTimeout(Duration sslCloseNotifyReadTimeout) {
-			Objects.requireNonNull(sslCloseNotifyReadTimeout, "sslCloseNotifyReadTimeout");
+			ObjectHelper.requireNonNull(sslCloseNotifyReadTimeout, "sslCloseNotifyReadTimeout");
 			return sslCloseNotifyFlushTimeoutMillis(sslCloseNotifyReadTimeout.toMillis());
 		}
 
@@ -498,7 +498,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @see #afterNettyContextInit(Consumer)
 		 */
 		public final BUILDER afterChannelInit(Consumer<? super Channel> afterChannelInit) {
-			this.afterChannelInit = Objects.requireNonNull(afterChannelInit, "afterChannelInit");
+			this.afterChannelInit = ObjectHelper.requireNonNull(afterChannelInit, "afterChannelInit");
 			return get();
 		}
 
@@ -512,7 +512,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @see #afterNettyContextInit(Consumer)
 		 */
 		public final BUILDER onChannelInit(Predicate<? super Channel> onChannelInit) {
-			this.onChannelInit = Objects.requireNonNull(onChannelInit, "onChannelInit");
+			this.onChannelInit = ObjectHelper.requireNonNull(onChannelInit, "onChannelInit");
 			return get();
 		}
 
@@ -527,7 +527,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @see #afterChannelInit(Consumer)
 		 */
 		public final BUILDER afterNettyContextInit(Consumer<? super NettyContext> afterNettyContextInit) {
-			this.afterNettyContextInit = Objects.requireNonNull(afterNettyContextInit, "afterNettyContextInit");
+			this.afterNettyContextInit = ObjectHelper.requireNonNull(afterNettyContextInit, "afterNettyContextInit");
 			return get();
 		}
 

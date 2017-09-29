@@ -16,11 +16,11 @@
 
 package io.reactivex.netty.http.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -49,6 +49,7 @@ import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
 import io.reactivex.Flowable;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.http.websocket.WebsocketInbound;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
 import org.reactivestreams.Publisher;
@@ -98,7 +99,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 			ContextHandler<?> context,
 			HttpRequest nettyRequest) {
 		super(ch, handler, context);
-		this.nettyRequest = Objects.requireNonNull(nettyRequest, "nettyRequest");
+		this.nettyRequest = ObjectHelper.requireNonNull(nettyRequest, "nettyRequest");
 		this.nettyResponse = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
 		this.responseHeaders = nettyResponse.headers();
 		this.cookieHolder = Cookies.newServerRequestHolder(requestHeaders());
@@ -212,7 +213,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@Override
 	public String param(CharSequence key) {
-		Objects.requireNonNull(key, "key");
+		ObjectHelper.requireNonNull(key, "key");
 		Map<String, String> params = null;
 		if (paramsResolver != null) {
 			params = this.paramsResolver.apply(uri());
@@ -273,11 +274,11 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	}
 
 	@Override
-	public NettyOutbound sendFile(Path file) {
+	public NettyOutbound sendFile(File file) {
 		try {
-			return sendFile(file, 0L, Files.size(file));
+			return sendFile(file, 0L, file.length());
 		}
-		catch (IOException e) {
+		catch (Throwable t) {
 			return then(sendNotFound());
 		}
 	}
@@ -290,7 +291,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@Override
 	public Flowable<Void> sendRedirect(String location) {
-		Objects.requireNonNull(location, "location");
+		ObjectHelper.requireNonNull(location, "location");
 		return this.status(HttpResponseStatus.FOUND)
 		           .header(HttpHeaderNames.LOCATION, location)
 		           .send();
@@ -433,7 +434,7 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 	final Flowable<Void> withWebsocketSupport(String url,
 			String protocols,
 			BiFunction<? super WebsocketInbound, ? super WebsocketOutbound, ? extends Publisher<Void>> websocketHandler) {
-		Objects.requireNonNull(websocketHandler, "websocketHandler");
+		ObjectHelper.requireNonNull(websocketHandler, "websocketHandler");
 		if (markSentHeaders()) {
 			HttpServerWSOperations ops = new HttpServerWSOperations(url, protocols, this);
 

@@ -17,7 +17,6 @@
 package io.reactivex.netty.channel;
 
 import java.net.InetSocketAddress;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -31,6 +30,7 @@ import io.reactivex.Flowable;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.internal.functions.Functions;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.SubscriptionHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyInbound;
@@ -139,9 +139,9 @@ public class ChannelOperations<INBOUND extends NettyInbound, OUTBOUND extends Ne
 	protected ChannelOperations(Channel channel,
 			BiFunction<? super INBOUND, ? super OUTBOUND, ? extends Publisher<Void>> handler,
 			ContextHandler<?> context, PublishProcessor<Void> processor) {
-		this.handler = Objects.requireNonNull(handler, "handler");
-		this.channel = Objects.requireNonNull(channel, "channel");
-		this.context = Objects.requireNonNull(context, "context");
+		this.handler = ObjectHelper.requireNonNull(handler, "handler");
+		this.channel = ObjectHelper.requireNonNull(channel, "channel");
+		this.context = ObjectHelper.requireNonNull(context, "context");
 		this.inbound = new FlowableReceive(this);
 		this.onInactive = processor;
 		Flowable.fromPublisher(context.onCloseOrRelease(channel))

@@ -18,7 +18,6 @@ package io.reactivex.netty.http.client;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -40,6 +39,7 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Function;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.NettyPipeline;
@@ -132,7 +132,7 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 
 	private HttpClient(HttpClient.Builder builder) {
 		HttpClientOptions.Builder clientOptionsBuilder = HttpClientOptions.builder();
-		if (Objects.nonNull(builder.options)) {
+		if (builder.options != null) {
 			builder.options.accept(clientOptionsBuilder);
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
@@ -455,7 +455,7 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 		 * @return {@code this}
 		 */
 		public final Builder options(Consumer<? super HttpClientOptions.Builder> options) {
-			this.options = Objects.requireNonNull(options, "options");
+			this.options = ObjectHelper.requireNonNull(options, "options");
 			return this;
 		}
 

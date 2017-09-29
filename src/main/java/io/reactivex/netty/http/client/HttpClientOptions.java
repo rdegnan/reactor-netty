@@ -19,12 +19,12 @@ package io.reactivex.netty.http.client;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
-import java.util.Objects;
 import java.util.function.Function;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.options.ClientOptions;
 import io.reactivex.netty.options.ClientProxyOptions;
 import io.reactivex.netty.options.ClientProxyOptions.Proxy;
@@ -72,7 +72,7 @@ public final class HttpClientOptions extends ClientOptions {
 	 * @return a new eventual {@link InetSocketAddress}
 	 */
 	public final InetSocketAddress getRemoteAddress(URI uri) {
-		Objects.requireNonNull(uri, "uri");
+		ObjectHelper.requireNonNull(uri, "uri");
 		boolean secure = isSecure(uri);
 		int port = uri.getPort() != -1 ? uri.getPort() : (secure ? 443 : 80);
 		return useProxy(uri.getHost()) ? InetSocketAddress.createUnresolved(uri.getHost(), port) :

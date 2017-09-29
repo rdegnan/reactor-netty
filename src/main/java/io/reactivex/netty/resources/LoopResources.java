@@ -15,8 +15,6 @@
  */
 package io.reactivex.netty.resources;
 
-import java.util.Objects;
-
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
@@ -26,6 +24,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.internal.functions.ObjectHelper;
 
 /**
  * An {@link EventLoopGroup} selector with associated
@@ -77,9 +76,7 @@ public interface LoopResources extends Disposable {
 	 * EventLoopGroup} and {@link Channel} factories
 	 */
 	static LoopResources create(String prefix, int workerCount, boolean daemon) {
-		if (workerCount < 1) {
-			throw new IllegalArgumentException("Must provide a strictly positive " + "worker number, " + "was: " + workerCount);
-		}
+		ObjectHelper.verifyPositive(workerCount, "workerCount");
 		return new DefaultLoopResources(prefix, workerCount, daemon);
 	}
 
@@ -99,16 +96,11 @@ public interface LoopResources extends Disposable {
 			int selectCount,
 			int workerCount,
 			boolean daemon) {
-		if (Objects.requireNonNull(prefix, "prefix")
-		           .isEmpty()) {
+		if (ObjectHelper.requireNonNull(prefix, "prefix").isEmpty()) {
 			throw new IllegalArgumentException("Cannot use empty prefix");
 		}
-		if (workerCount < 1) {
-			throw new IllegalArgumentException("Must provide a strictly positive " + "worker number, " + "was: " + workerCount);
-		}
-		if (selectCount < 1) {
-			throw new IllegalArgumentException("Must provide a strictly positive " + "worker number, " + "was: " + workerCount);
-		}
+		ObjectHelper.verifyPositive(selectCount, "selectCount");
+		ObjectHelper.verifyPositive(workerCount, "workerCount");
 		return new DefaultLoopResources(prefix, selectCount, workerCount, daemon);
 	}
 

@@ -17,7 +17,6 @@
 package io.reactivex.netty.udp;
 
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
@@ -28,6 +27,7 @@ import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.options.ClientOptions;
 import org.reactivestreams.Publisher;
@@ -120,7 +120,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 
 	private UdpClient(UdpClient.Builder builder) {
 		UdpClientOptions.Builder clientOptionsBuilder = UdpClientOptions.builder();
-		if (Objects.nonNull(builder.options)) {
+		if (builder.options != null) {
 			builder.options.accept(clientOptionsBuilder);
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
@@ -192,7 +192,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 		 * @return {@code this}
 		 */
 		public final Builder options(Consumer<? super UdpClientOptions.Builder> options) {
-			this.options = Objects.requireNonNull(options, "options");
+			this.options = ObjectHelper.requireNonNull(options, "options");
 			return this;
 		}
 

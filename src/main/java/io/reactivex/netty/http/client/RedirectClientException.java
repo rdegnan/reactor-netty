@@ -16,10 +16,9 @@
 
 package io.reactivex.netty.http.client;
 
-import java.util.Objects;
-
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponse;
+import io.reactivex.internal.functions.ObjectHelper;
 
 /**
  * An error for signalling that an error occurred during a communication over HTTP version
@@ -31,8 +30,8 @@ final class RedirectClientException extends HttpClientException {
 
 	public RedirectClientException(String uri, HttpResponse response) {
 		super(uri, response);
-		location = Objects.requireNonNull(response.headers()
-		                                          .get(HttpHeaderNames.LOCATION));
+		location = ObjectHelper.requireNonNull(response.headers()
+		                                          .get(HttpHeaderNames.LOCATION), "location");
 	}
 
 }

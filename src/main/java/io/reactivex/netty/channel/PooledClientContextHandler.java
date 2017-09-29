@@ -20,7 +20,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import io.netty.channel.Channel;
@@ -30,6 +29,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.SucceededFuture;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyContext;
 import io.reactivex.netty.options.ClientOptions;
 import io.reactivex.processors.PublishProcessor;
@@ -88,7 +88,7 @@ final class PooledClientContextHandler<CHANNEL extends Channel>
 	@Override
 	@SuppressWarnings("unchecked")
 	public void setFuture(Future<?> future) {
-		Objects.requireNonNull(future, "future");
+		ObjectHelper.requireNonNull(future, "future");
 
 		Future<CHANNEL> f;
 		for (; ; ) {

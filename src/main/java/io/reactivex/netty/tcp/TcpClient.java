@@ -18,7 +18,6 @@ package io.reactivex.netty.tcp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
@@ -31,6 +30,7 @@ import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyHandler;
 import io.reactivex.netty.NettyInbound;
@@ -119,7 +119,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 
 	protected TcpClient(TcpClient.Builder builder) {
 		ClientOptions.Builder<?> clientOptionsBuilder = ClientOptions.builder();
-		if (Objects.nonNull(builder.options)) {
+		if (builder.options != null) {
 			builder.options.accept(clientOptionsBuilder);
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
@@ -132,12 +132,12 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	}
 
 	protected TcpClient(ClientOptions options) {
-		this.options = Objects.requireNonNull(options, "options");
+		this.options = ObjectHelper.requireNonNull(options, "options");
 	}
 
 	@Override
 	public final Flowable<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(handler, "handler");
 		return newHandler(handler, null, true, null);
 	}
 
@@ -245,7 +245,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 		 * @return {@code this}
 		 */
 		public final Builder options(Consumer<? super ClientOptions.Builder<?>> options) {
-			this.options = Objects.requireNonNull(options, "options");
+			this.options = ObjectHelper.requireNonNull(options, "options");
 			return this;
 		}
 

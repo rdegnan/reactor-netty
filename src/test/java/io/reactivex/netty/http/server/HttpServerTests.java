@@ -16,16 +16,11 @@
 
 package io.reactivex.netty.http.server;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.security.cert.CertificateException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -117,7 +112,7 @@ public class HttpServerTests {
 	@Test
 	public void sendFileSecure()
 			throws CertificateException, SSLException, URISyntaxException {
-		Path largeFile = Paths.get(getClass().getResource("/largeFile.txt").toURI());
+		File largeFile = new File(getClass().getResource("/largeFile.txt").toURI());
 		SelfSignedCertificate ssc = new SelfSignedCertificate();
 		SslContext sslServer = SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey()).build();
 		SslContext sslClient = SslContextBuilder.forClient().trustManager(ssc.cert()).build();
@@ -147,36 +142,9 @@ public class HttpServerTests {
 
 	@Test
 	public void sendFileChunked() throws IOException, URISyntaxException {
-		Path largeFile = Paths.get(getClass().getResource("/largeFile.txt").toURI());
-		long fileSize = Files.size(largeFile);
+		File largeFile = new File(getClass().getResource("/largeFile.txt").toURI());
+		long fileSize = largeFile.length();
 		assertSendFile(out -> out.sendFileChunked(largeFile, 0, fileSize));
-	}
-
-	@Test
-	public void sendZipFileChunked() throws IOException {
-		Path path = Files.createTempFile(null, ".zip");
-		Files.copy(this.getClass().getResourceAsStream("/zipFile.zip"), path, StandardCopyOption.REPLACE_EXISTING);
-		path.toFile().deleteOnExit();
-
-		try (FileSystem zipFs = FileSystems.newFileSystem(path, null)) {
-			Path fromZipFile = zipFs.getPath("/largeFile.txt");
-			long fileSize = Files.size(fromZipFile);
-			assertSendFile(out -> out.sendFileChunked(fromZipFile, 0, fileSize));
-		}
-	}
-
-	@Test
-	public void sendZipFileDefault()
-			throws IOException {
-		Path path = Files.createTempFile(null, ".zip");
-		Files.copy(this.getClass().getResourceAsStream("/zipFile.zip"), path, StandardCopyOption.REPLACE_EXISTING);
-
-		try (FileSystem zipFs = FileSystems.newFileSystem(path, null)) {
-			Path fromZipFile = zipFs.getPath("/largeFile.txt");
-			long fileSize = Files.size(fromZipFile);
-
-			assertSendFile(out -> out.sendFile(fromZipFile, 0, fileSize));
-		}
 	}
 
 	private void assertSendFile(Function<HttpServerResponse, NettyOutbound> fn) {
@@ -322,7 +290,7 @@ public class HttpServerTests {
 
 	@Test
 	public void keepAlive() throws URISyntaxException {
-		Path resource = Paths.get(getClass().getResource("/public").toURI());
+		File resource = new File(getClass().getResource("/public").toURI());
 		NettyContext c = HttpServer.create(0)
 		                           .newRouter(routes -> routes.directory("/test", resource))
 		                           .blockingSingle();

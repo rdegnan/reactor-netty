@@ -16,13 +16,13 @@
 
 package io.reactivex.netty;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.util.Objects;
+import java.util.concurrent.Callable;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -30,6 +30,7 @@ import io.netty.buffer.ByteBufHolder;
 import io.reactivex.Flowable;
 import io.reactivex.Maybe;
 import io.reactivex.functions.Function;
+import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 
@@ -62,7 +63,7 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 	 */
 	public static ByteBufFlowable fromInbound(Publisher<?> source,
 																						ByteBufAllocator allocator) {
-		Objects.requireNonNull(allocator, "allocator");
+		ObjectHelper.requireNonNull(allocator, "allocator");
 		return new ByteBufFlowable(Flowable.fromPublisher(source)
 		                           .map(bytebufExtractor), allocator);
 	}
@@ -72,25 +73,25 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 	 * {@link ByteBuf} chunks with a default maximum size of 500K into
 	 * the returned {@link ByteBufFlowable}
 	 *
-	 * @param path the path to the resource to stream
+	 * @param file the path to the resource to stream
 	 *
 	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlowable fromPath(Path path) {
-		return fromPath(path, MAX_CHUNK_SIZE);
+	public static ByteBufFlowable fromFile(File file) {
+		return fromFile(file, MAX_CHUNK_SIZE);
 	}
 
 	/**
 	 * Open a {@link java.nio.channels.FileChannel} from a path and stream
 	 * {@link ByteBuf} chunks with a given maximum size into the returned {@link ByteBufFlowable}
 	 *
-	 * @param path the path to the resource to stream
+	 * @param file the path to the resource to stream
 	 * @param maxChunkSize the maximum per-item ByteBuf size
 	 *
 	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlowable fromPath(Path path, int maxChunkSize) {
-		return fromPath(path, maxChunkSize, ByteBufAllocator.DEFAULT);
+	public static ByteBufFlowable fromFile(File file, int maxChunkSize) {
+		return fromFile(file, maxChunkSize, ByteBufAllocator.DEFAULT);
 	}
 
 	/**
@@ -98,13 +99,13 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 	 * {@link ByteBuf} chunks with a default maximum size of 500K into the returned
 	 * {@link ByteBufFlowable}, using the provided {@link ByteBufAllocator}.
 	 *
-	 * @param path the path to the resource to stream
+	 * @param file the path to the resource to stream
 	 * @param allocator the channel {@link ByteBufAllocator}
 	 *
 	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlowable fromPath(Path path, ByteBufAllocator allocator) {
-		return fromPath(path, MAX_CHUNK_SIZE, allocator);
+	public static ByteBufFlowable fromFile(File file, ByteBufAllocator allocator) {
+		return fromFile(file, MAX_CHUNK_SIZE, allocator);
 	}
 
 	/**
@@ -112,21 +113,19 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 	 * {@link ByteBuf} chunks with a given maximum size into the returned
 	 * {@link ByteBufFlowable}, using the provided {@link ByteBufAllocator}.
 	 *
-	 * @param path the path to the resource to stream
+	 * @param file the path to the resource to stream
 	 * @param maxChunkSize the maximum per-item ByteBuf size
 	 * @param allocator the channel {@link ByteBufAllocator}
 	 *
 	 * @return a {@link ByteBufFlowable}
 	 */
-	public static ByteBufFlowable fromPath(Path path,
+	public static ByteBufFlowable fromFile(File file,
 																				 int maxChunkSize,
 																				 ByteBufAllocator allocator) {
-		Objects.requireNonNull(path, "path");
-		Objects.requireNonNull(allocator, "allocator");
-		if (maxChunkSize < 1) {
-			throw new IllegalArgumentException("chunk size must be strictly positive, " + "was: " + maxChunkSize);
-		}
-		return new ByteBufFlowable(Flowable.generate(() -> FileChannel.open(path), (fc, sink) -> {
+		ObjectHelper.requireNonNull(file, "file");
+		ObjectHelper.requireNonNull(allocator, "allocator");
+		ObjectHelper.verifyPositive(maxChunkSize, "maxChunkSize");
+		return new ByteBufFlowable(Flowable.generate(() -> new FileInputStream(file).getChannel(), (fc, sink) -> {
 			try {
 				ByteBuf buf = allocator.buffer();
 				long pos;
@@ -141,6 +140,10 @@ public final class ByteBufFlowable extends Flowable<ByteBuf> {
 				sink.onError(e);
 			}
 			return fc;
+		}, fc -> {
+			try {
+				fc.close();
+			} catch (IOException e) {/*IGNORE*/}
 		}), allocator);
 	}
 

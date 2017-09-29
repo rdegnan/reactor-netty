@@ -16,10 +16,8 @@
 
 package io.reactivex.netty.http.server;
 
+import java.io.File;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -67,7 +65,7 @@ public interface HttpServerRoutes extends
 
 	/**
 	 * Listen for HTTP GET on the passed path to be used as a routing condition. The
-	 * content of the provided  {@link Path directory} will be served.
+	 * content of the provided  {@link File directory} will be served.
 	 * <p>
 	 * Additional regex matching is available, e.g. "/test/{param}". Params are resolved
 	 * using {@link HttpServerRequest#param(CharSequence)}
@@ -78,13 +76,13 @@ public interface HttpServerRoutes extends
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	default HttpServerRoutes directory(String uri, Path directory) {
+	default HttpServerRoutes directory(String uri, File directory) {
 		return directory(uri, directory, null);
 	}
 
 	/**
 	 * Listen for HTTP GET on the passed path to be used as a routing condition.The
-	 * content of the provided {@link Path directory} will be served.
+	 * content of the provided {@link File directory} will be served.
 	 * <p>
 	 * Additional regex matching is available, e.g. "/test/{param}". Params are resolved
 	 * using {@link HttpServerRequest#param(CharSequence)}
@@ -96,7 +94,7 @@ public interface HttpServerRoutes extends
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	HttpServerRoutes directory(String uri, Path directory,
+	HttpServerRoutes directory(String uri, File directory,
 			Function<HttpServerResponse, HttpServerResponse> interceptor);
 
 	/**
@@ -107,12 +105,12 @@ public interface HttpServerRoutes extends
 	 * using {@link HttpServerRequest#param(CharSequence)}
 	 *
 	 * @param uri The GET path used by clients
-	 * @param path the resource Path to serve
+	 * @param file the {@link File} to serve
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	default HttpServerRoutes file(String uri, Path path) {
-		return file(HttpPredicate.get(uri), path, null);
+	default HttpServerRoutes file(String uri, File file) {
+		return file(HttpPredicate.get(uri), file, null);
 	}
 
 	/**
@@ -128,35 +126,35 @@ public interface HttpServerRoutes extends
 	 * @return this {@link HttpServerRoutes}
 	 */
 	default HttpServerRoutes file(String uri, String path) {
-		return file(HttpPredicate.get(uri), Paths.get(path), null);
+		return file(HttpPredicate.get(uri), new File(path), null);
 	}
 
 	/**
 	 * Listen for HTTP GET on the passed path to be used as a routing condition. The
-	 * file on the provided {@link Path} is served.
+	 * file on the provided {@link File} is served.
 	 * <p>
 	 * Additional regex matching is available e.g.
 	 * "/test/{param}". Params are resolved using {@link HttpServerRequest#param(CharSequence)}
 	 *
 	 * @param uri The {@link HttpPredicate} to use to trigger the route, pattern matching
 	 * and capture are supported
-	 * @param path the Path to the file to serve
+	 * @param file the {@link File} to serve
 	 * @param interceptor a channel pre-intercepting handler e.g. for content type header
 	 *
 	 * @return this {@link HttpServerRoutes}
 	 */
-	default HttpServerRoutes file(Predicate<HttpServerRequest> uri, Path path,
+	default HttpServerRoutes file(Predicate<HttpServerRequest> uri, File file,
 			Function<HttpServerResponse, HttpServerResponse> interceptor) {
-		Objects.requireNonNull(path, "path");
+		Objects.requireNonNull(file, "file");
 		return route(uri, (req, resp) -> {
-			if (!Files.isReadable(path)) {
-				return resp.send(ByteBufFlowable.fromPath(path));
+			if (!file.canRead()) {
+				return resp.send(ByteBufFlowable.fromFile(file));
 			}
 			if (interceptor != null) {
 				return interceptor.apply(resp)
-				                  .sendFile(path);
+				                  .sendFile(file);
 			}
-			return resp.sendFile(path);
+			return resp.sendFile(file);
 		});
 	}
 

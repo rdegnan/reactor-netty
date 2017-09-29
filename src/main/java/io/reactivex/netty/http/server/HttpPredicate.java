@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -28,6 +27,7 @@ import java.util.regex.Pattern;
 
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
+import io.reactivex.internal.functions.ObjectHelper;
 
 /**
  * A Predicate to match against ServerRequest
@@ -137,7 +137,7 @@ final class HttpPredicate
 	 * @see Predicate
 	 */
 	public static Predicate<HttpServerRequest> prefix(String prefix, HttpMethod method) {
-		Objects.requireNonNull(prefix, "Prefix must be provided");
+		ObjectHelper.requireNonNull(prefix, "Prefix must be provided");
 
 		String target = prefix.startsWith("/") ? prefix : "/".concat(prefix);
 		//target = target.endsWith("/") ? target :  prefix.concat("/");

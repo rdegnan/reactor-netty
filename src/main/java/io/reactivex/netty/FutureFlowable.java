@@ -15,12 +15,12 @@
  */
 package io.reactivex.netty;
 
-import java.util.Objects;
 import java.util.function.Supplier;
 
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.reactivex.Flowable;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.EmptySubscription;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -70,7 +70,7 @@ public abstract class FutureFlowable extends Flowable<Void> {
 		final F future;
 
 		ImmediateFutureFlowable(F future) {
-			this.future = Objects.requireNonNull(future, "future");
+			this.future = ObjectHelper.requireNonNull(future, "future");
 		}
 
 		@Override
@@ -97,7 +97,7 @@ public abstract class FutureFlowable extends Flowable<Void> {
 
 		DeferredFutureFlowable(Supplier<F> deferredFuture) {
 			this.deferredFuture =
-					Objects.requireNonNull(deferredFuture, "deferredFuture");
+					ObjectHelper.requireNonNull(deferredFuture, "deferredFuture");
 		}
 
 		@Override

@@ -39,6 +39,7 @@ import io.netty.channel.FileRegion;
 import io.netty.util.ReferenceCountUtil;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.queue.SpscLinkedArrayQueue;
 import io.reactivex.internal.subscriptions.ScalarSubscription;
 import io.reactivex.internal.subscriptions.SubscriptionHelper;
@@ -540,8 +541,6 @@ final class ChannelOperationsHandler extends ChannelDuplexHandler
 				return;
 			}
 
-			Objects.requireNonNull(s);
-
 			if (wip == 0 && WIP.compareAndSet(this, 0, 1)) {
 				actual = s;
 
@@ -601,7 +600,7 @@ final class ChannelOperationsHandler extends ChannelDuplexHandler
 					return;
 				}
 
-				addCap(MISSED_REQUESTED, this, n);
+				addCap(MISSED_REQUESTED, n);
 
 				drain();
 			}
@@ -717,9 +716,23 @@ final class ChannelOperationsHandler extends ChannelDuplexHandler
 				return;
 			}
 
-			addCap(MISSED_PRODUCED, this, n);
+			addCap(MISSED_PRODUCED, n);
 
 			drain();
+		}
+
+		final long addCap(AtomicLongFieldUpdater<PublisherSender> updater, long toAdd) {
+			long r, u;
+			for (;;) {
+				r = updater.get(this);
+				if (r == Long.MAX_VALUE) {
+					return Long.MAX_VALUE;
+				}
+				u = BackpressureHelper.addCap(r, toAdd);
+				if (updater.compareAndSet(this, r, u)) {
+					return r;
+				}
+			}
 		}
 
 		@SuppressWarnings("rawtypes")
@@ -754,30 +767,6 @@ final class ChannelOperationsHandler extends ChannelDuplexHandler
 		@Override
 		public String toString() {
 			return "[Pending Writes on Completion]";
-		}
-	}
-
-	/**
-	 * Concurrent addition bound to Long.MAX_VALUE.
-	 * Any concurrent write will "happen before" this operation.
-	 *
-	 * @param <T> the parent instance type
-	 * @param updater  current field updater
-	 * @param instance current instance to update
-	 * @param toAdd    delta to add
-	 * @return value before addition or Long.MAX_VALUE
-	 */
-	private static <T> long addCap(AtomicLongFieldUpdater<T> updater, T instance, long toAdd) {
-		long r, u;
-		for (;;) {
-			r = updater.get(instance);
-			if (r == Long.MAX_VALUE) {
-				return Long.MAX_VALUE;
-			}
-			u = BackpressureHelper.addCap(r, toAdd);
-			if (updater.compareAndSet(instance, r, u)) {
-				return r;
-			}
 		}
 	}
 }

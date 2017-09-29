@@ -16,7 +16,6 @@
 
 package io.reactivex.netty.http.server;
 
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
@@ -30,6 +29,7 @@ import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.NettyPipeline;
@@ -121,7 +121,7 @@ public final class HttpServer
 
 	private HttpServer(HttpServer.Builder builder) {
 		HttpServerOptions.Builder serverOptionsBuilder = HttpServerOptions.builder();
-		if (Objects.isNull(builder.options)) {
+		if (builder.options == null) {
 			serverOptionsBuilder.host(builder.bindAddress)
 			                    .port(builder.port);
 		}
@@ -153,7 +153,7 @@ public final class HttpServer
 	@SuppressWarnings("unchecked")
 	public Flowable<? extends NettyContext> newHandler(BiFunction<? super HttpServerRequest, ? super
 			HttpServerResponse, ? extends Publisher<Void>> handler) {
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(handler, "handler");
 		return server.newHandler((BiFunction<NettyInbound, NettyOutbound, Publisher<Void>>) handler);
 	}
 
@@ -165,7 +165,7 @@ public final class HttpServer
 	 */
 	public Flowable<? extends NettyContext> newRouter(Consumer<? super HttpServerRoutes>
 			routesBuilder) {
-		Objects.requireNonNull(routesBuilder, "routeBuilder");
+		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
 		routesBuilder.accept(routes);
 		return newHandler(routes);
@@ -181,7 +181,7 @@ public final class HttpServer
 	 * @return a {@link BlockingNettyContext}
 	 */
 	public BlockingNettyContext startRouter(Consumer<? super HttpServerRoutes> routesBuilder) {
-		Objects.requireNonNull(routesBuilder, "routeBuilder");
+		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
 		routesBuilder.accept(routes);
 		return start(routes);
@@ -220,7 +220,7 @@ public final class HttpServer
 	 */
 	public void startRouterAndAwait(Consumer<? super HttpServerRoutes> routesBuilder,
 			Consumer<BlockingNettyContext> onStart) {
-		Objects.requireNonNull(routesBuilder, "routeBuilder");
+		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
 		routesBuilder.accept(routes);
 		startAndAwait(routes, onStart);
@@ -280,7 +280,7 @@ public final class HttpServer
 		 * @return {@code this}
 		 */
 		public final Builder bindAddress(String bindAddress) {
-			this.bindAddress = Objects.requireNonNull(bindAddress, "bindAddress");
+			this.bindAddress = ObjectHelper.requireNonNull(bindAddress, "bindAddress");
 			return this;
 		}
 
@@ -291,7 +291,7 @@ public final class HttpServer
 		 * @return {@code this}
 		 */
 		public final Builder port(int port) {
-			this.port = Objects.requireNonNull(port, "port");
+			this.port = ObjectHelper.requireNonNull(port, "port");
 			return this;
 		}
 
@@ -302,7 +302,7 @@ public final class HttpServer
 		 * @return {@code this}
 		 */
 		public final Builder options(Consumer<? super HttpServerOptions.Builder> options) {
-			this.options = Objects.requireNonNull(options, "options");
+			this.options = ObjectHelper.requireNonNull(options, "options");
 			return this;
 		}
 

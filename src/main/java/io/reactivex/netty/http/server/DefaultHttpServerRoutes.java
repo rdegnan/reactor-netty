@@ -16,12 +16,10 @@
 
 package io.reactivex.netty.http.server;
 
+import java.io.File;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -29,6 +27,7 @@ import java.util.function.Predicate;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 
 /**
@@ -41,9 +40,9 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 			new CopyOnWriteArrayList<>();
 
 	@Override
-	public HttpServerRoutes directory(String uri, Path directory,
+	public HttpServerRoutes directory(String uri, File directory,
 			Function<HttpServerResponse, HttpServerResponse> interceptor) {
-		Objects.requireNonNull(directory, "directory");
+		ObjectHelper.requireNonNull(directory, "directory");
 		return route(HttpPredicate.prefix(uri), (req, resp) -> {
 
 			String prefix = URI.create(req.uri())
@@ -54,14 +53,14 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 				prefix = prefix.substring(1);
 			}
 
-			Path p = directory.resolve(prefix);
-			if (Files.isReadable(p)) {
+			File f = new File(directory, prefix);
+			if (f.canRead()) {
 
 				if (interceptor != null) {
 					return interceptor.apply(resp)
-					                  .sendFile(p);
+					                  .sendFile(f);
 				}
-				return resp.sendFile(p);
+				return resp.sendFile(f);
 			}
 
 			return resp.sendNotFound();
@@ -71,8 +70,8 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 	@Override
 	public HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
 			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
-		Objects.requireNonNull(condition, "condition");
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(condition, "condition");
+		ObjectHelper.requireNonNull(handler, "handler");
 
 		if (condition instanceof HttpPredicate) {
 			handlers.add(new HttpRouteHandler(condition,
@@ -120,8 +119,8 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		HttpRouteHandler(Predicate<? super HttpServerRequest> condition,
 				BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
 				Function<? super String, Map<String, String>> resolver) {
-			this.condition = Objects.requireNonNull(condition, "condition");
-			this.handler = Objects.requireNonNull(handler, "handler");
+			this.condition = ObjectHelper.requireNonNull(condition, "condition");
+			this.handler = ObjectHelper.requireNonNull(handler, "handler");
 			this.resolver = resolver;
 		}
 

@@ -17,7 +17,6 @@
 package io.reactivex.netty.tcp;
 
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -28,6 +27,7 @@ import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.*;
 import io.reactivex.netty.channel.ChannelOperations;
 import io.reactivex.netty.channel.ContextHandler;
@@ -128,7 +128,7 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 
 	protected TcpServer(TcpServer.Builder builder) {
 		ServerOptions.Builder<?> serverOptionsBuilder = ServerOptions.builder();
-		if (Objects.isNull(builder.options)) {
+		if (builder.options == null) {
 			serverOptionsBuilder.host(builder.bindAddress)
 			                    .port(builder.port);
 		}
@@ -145,12 +145,12 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	 * @param options server options
 	 */
 	protected TcpServer(ServerOptions options) {
-		this.options = Objects.requireNonNull(options, "options");
+		this.options = ObjectHelper.requireNonNull(options, "options");
 	}
 
 	@Override
 	public final Flowable<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
-		Objects.requireNonNull(handler, "handler");
+		ObjectHelper.requireNonNull(handler, "handler");
 		return NettyHandler.create(sink -> {
 			ServerBootstrap b = options.get();
 			SocketAddress local = options.getAddress();
@@ -217,7 +217,7 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 		 * @return {@code this}
 		 */
 		public final Builder bindAddress(String bindAddress) {
-			this.bindAddress = Objects.requireNonNull(bindAddress, "bindAddress");
+			this.bindAddress = ObjectHelper.requireNonNull(bindAddress, "bindAddress");
 			return this;
 		}
 
@@ -228,7 +228,7 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 		 * @return {@code this}
 		 */
 		public final Builder port(int port) {
-			this.port = Objects.requireNonNull(port, "port");
+			this.port = ObjectHelper.requireNonNull(port, "port");
 			return this;
 		}
 
@@ -239,7 +239,7 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 		 * @return {@code this}
 		 */
 		public final Builder options(Consumer<? super ServerOptions.Builder<?>> options) {
-			this.options = Objects.requireNonNull(options, "options");
+			this.options = ObjectHelper.requireNonNull(options, "options");
 			return this;
 		}
 

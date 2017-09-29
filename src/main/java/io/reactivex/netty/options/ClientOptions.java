@@ -18,7 +18,6 @@ package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -37,6 +36,7 @@ import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.NetUtil;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.resources.LoopResources;
 import io.reactivex.netty.resources.PoolResources;
 
@@ -92,9 +92,9 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 	protected ClientOptions(ClientOptions.Builder<?> builder){
 		super(builder);
 		this.proxyOptions = builder.proxyOptions;
-		if (Objects.isNull(builder.connectAddress)) {
+		if (builder.connectAddress == null) {
 			if (builder.port >= 0) {
-				if (Objects.isNull(builder.host)) {
+				if (builder.host == null) {
 					this.connectAddress = () -> new InetSocketAddress(NetUtil.LOCALHOST.getHostAddress(), builder.port);
 				}
 				else {
@@ -191,7 +191,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 
 	@SuppressWarnings("unchecked")
 	final void groupAndChannel(Bootstrap bootstrap) {
-		LoopResources loops = Objects.requireNonNull(getLoopResources(), "loopResources");
+		LoopResources loops = ObjectHelper.requireNonNull(getLoopResources(), "loopResources");
 
 		boolean useNative =
 				this.protocolFamily == null && preferNative() && !(sslContext() instanceof JdkSslContext);
@@ -285,7 +285,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER resolver(AddressResolverGroup<?> resolver) {
-			Objects.requireNonNull(resolver, "resolver");
+			ObjectHelper.requireNonNull(resolver, "resolver");
 			this.bootstrapTemplate.resolver(resolver);
 			return get();
 		}
@@ -299,7 +299,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER poolResources(PoolResources poolResources) {
-			this.poolResources = Objects.requireNonNull(poolResources, "poolResources");
+			this.poolResources = ObjectHelper.requireNonNull(poolResources, "poolResources");
 			this.poolDisabled = false;
 			return get();
 		}
@@ -331,7 +331,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER protocolFamily(InternetProtocolFamily protocolFamily) {
-			this.protocolFamily = Objects.requireNonNull(protocolFamily, "protocolFamily");
+			this.protocolFamily = ObjectHelper.requireNonNull(protocolFamily, "protocolFamily");
 			return get();
 		}
 
@@ -354,7 +354,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER sslSupport(Consumer<? super SslContextBuilder> configurator) {
-			Objects.requireNonNull(configurator, "configurator");
+			ObjectHelper.requireNonNull(configurator, "configurator");
 			try {
 				SslContextBuilder builder = SslContextBuilder.forClient();
 				configurator.accept(builder);
@@ -372,7 +372,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER host(String host) {
-			if (Objects.isNull(host)) {
+			if (host == null) {
 				this.host = NetUtil.LOCALHOST.getHostAddress();
 			}
 			else {
@@ -388,7 +388,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER port(int port) {
-			this.port = Objects.requireNonNull(port, "port");
+			this.port = ObjectHelper.requireNonNull(port, "port");
 			return get();
 		}
 
@@ -399,7 +399,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER connectAddress(Supplier<? extends SocketAddress> connectAddressSupplier) {
-			this.connectAddress = Objects.requireNonNull(connectAddressSupplier, "connectAddressSupplier");
+			this.connectAddress = ObjectHelper.requireNonNull(connectAddressSupplier, "connectAddressSupplier");
 			return get();
 		}
 
@@ -410,7 +410,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @return {@code this}
 		 */
 		public final BUILDER proxy(Function<ClientProxyOptions.TypeSpec, ClientProxyOptions.Builder> proxyOptions) {
-			Objects.requireNonNull(proxyOptions, "proxyOptions");
+			ObjectHelper.requireNonNull(proxyOptions, "proxyOptions");
 			ClientProxyOptions.Builder builder = proxyOptions.apply(ClientProxyOptions.builder());
 			this.proxyOptions = builder.build();
 			if(bootstrapTemplate.config().resolver() == DefaultAddressResolverGroup.INSTANCE) {

@@ -23,6 +23,7 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
@@ -51,14 +52,21 @@ public class ByteBufFlowableTest {
 
         // Create a temporary file with some binary data that will be read in chunks using the ByteBufFlowable
         final int chunkSize = 3;
-        final Path tmpFile = new File(temporaryDirectory, "content.in").toPath();
+        final File tmpFile = new File(temporaryDirectory, "content.in");
         final byte[] data = new byte[]{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9};
-        Files.write(tmpFile, data);
+
+        FileOutputStream stream = new FileOutputStream(tmpFile);
+        try {
+            stream.write(data);
+        } finally {
+            stream.close();
+        }
+
         // Make sure the file is 10 bytes (i.e. the same ad the data length)
-        Assert.assertEquals(data.length, Files.size(tmpFile));
+        Assert.assertEquals(data.length, tmpFile.length());
 
         // Use the ByteBufFlowable to read the file in chunks of 3 bytes max and write them into a ByteArrayOutputStream for verification
-        final Iterator<ByteBuf> it = ByteBufFlowable.fromPath(tmpFile, chunkSize).blockingIterable().iterator();
+        final Iterator<ByteBuf> it = ByteBufFlowable.fromFile(tmpFile, chunkSize).blockingIterable().iterator();
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
         while (it.hasNext()) {
             ByteBuf bb = it.next();
@@ -70,7 +78,7 @@ public class ByteBufFlowableTest {
 
         // Verify that we read the file.
         Assert.assertArrayEquals(data, out.toByteArray());
-        System.out.println(Files.exists(tmpFile));
+        System.out.println(tmpFile.exists());
 
     }
 

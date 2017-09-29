@@ -17,7 +17,6 @@
 package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -26,6 +25,7 @@ import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.proxy.Socks4ProxyHandler;
 import io.netty.handler.proxy.Socks5ProxyHandler;
+import io.reactivex.internal.functions.ObjectHelper;
 
 /**
  * Proxy configuration
@@ -52,7 +52,7 @@ public class ClientProxyOptions {
 	private ClientProxyOptions(ClientProxyOptions.Build builder) {
 		this.username = builder.username;
 		this.password = builder.password;
-		if (Objects.isNull(builder.address)) {
+		if (builder.address == null) {
 			this.address = () -> new InetSocketAddress(builder.host, builder.port);
 		}
 		else {
@@ -105,19 +105,19 @@ public class ClientProxyOptions {
 	public final ProxyHandler newProxyHandler() {
 		InetSocketAddress proxyAddr = this.address.get();
 		String username = this.username;
-		String password = Objects.nonNull(username) && Objects.nonNull(this.password) ?
+		String password = username != null && this.password != null ?
 				this.password.apply(username) : null;
 
 		switch (this.type) {
 			case HTTP:
-				return Objects.nonNull(username) && Objects.nonNull(password) ?
+				return username != null && password != null ?
 						new HttpProxyHandler(proxyAddr, username, password) :
 						new HttpProxyHandler(proxyAddr);
 			case SOCKS4:
-				return Objects.nonNull(username) ? new Socks4ProxyHandler(proxyAddr, username) :
+				return username != null ? new Socks4ProxyHandler(proxyAddr, username) :
 						new Socks4ProxyHandler(proxyAddr);
 			case SOCKS5:
-				return Objects.nonNull(username) && Objects.nonNull(password) ?
+				return username != null && password != null ?
 						new Socks5ProxyHandler(proxyAddr, username, password) :
 						new Socks5ProxyHandler(proxyAddr);
 		}
@@ -174,19 +174,19 @@ public class ClientProxyOptions {
 
 		@Override
 		public final Builder host(String host) {
-			this.host = Objects.requireNonNull(host, "host");
+			this.host = ObjectHelper.requireNonNull(host, "host");
 			return this;
 		}
 
 		@Override
 		public final Builder port(int port) {
-			this.port = Objects.requireNonNull(port, "port");
+			this.port = ObjectHelper.requireNonNull(port, "port");
 			return this;
 		}
 
 		@Override
 		public final Builder address(InetSocketAddress address) {
-			Objects.requireNonNull(address, "address");
+			ObjectHelper.requireNonNull(address, "address");
 			this.address = address.isUnresolved() ?
 					() -> new InetSocketAddress(address.getHostName(),
 							address.getPort()) :
@@ -196,7 +196,7 @@ public class ClientProxyOptions {
 
 		@Override
 		public final Builder address(Supplier<? extends InetSocketAddress> addressSupplier) {
-			this.address = Objects.requireNonNull(addressSupplier, "addressSupplier");
+			this.address = ObjectHelper.requireNonNull(addressSupplier, "addressSupplier");
 			return this;
 		}
 
@@ -208,7 +208,7 @@ public class ClientProxyOptions {
 
 		@Override
 		public final AddressSpec type(Proxy type) {
-			this.type = Objects.requireNonNull(type, "type");
+			this.type = ObjectHelper.requireNonNull(type, "type");
 			return this;
 		}
 

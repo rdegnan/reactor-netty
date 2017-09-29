@@ -18,7 +18,6 @@ package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -32,6 +31,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.AttributeKey;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.resources.LoopResources;
 
@@ -71,8 +71,8 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 	 */
 	protected ServerOptions(ServerOptions.Builder<?> builder) {
 		super(builder);
-		if (Objects.isNull(builder.listenAddress)) {
-			if (Objects.isNull(builder.host)) {
+		if (builder.listenAddress == null) {
+			if (builder.host == null) {
 				this.localAddress = new InetSocketAddress(builder.port);
 			}
 			else {
@@ -103,7 +103,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 
 	final void groupAndChannel(ServerBootstrap bootstrap) {
 		LoopResources loops =
-				Objects.requireNonNull(getLoopResources(), "loopResources");
+				ObjectHelper.requireNonNull(getLoopResources(), "loopResources");
 
 		boolean useNative = preferNative() && !(sslContext() instanceof JdkSslContext);
 		final EventLoopGroup selectorGroup = loops.onServerSelect(useNative);
@@ -228,7 +228,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 * @return {@code this}
 		 */
 		public final BUILDER host(String host) {
-			if (Objects.isNull(host)) {
+			if (host == null) {
 				this.host = "localhost";
 			}
 			else {
@@ -244,7 +244,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 * @return {@code this}
 		 */
 		public final BUILDER port(int port) {
-			this.port = Objects.requireNonNull(port, "port");
+			this.port = ObjectHelper.requireNonNull(port, "port");
 			return get();
 		}
 
@@ -255,7 +255,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 * @return {@code this}
 		 */
 		public final BUILDER listenAddress(SocketAddress listenAddress) {
-			this.listenAddress = Objects.requireNonNull(listenAddress, "listenAddress");
+			this.listenAddress = ObjectHelper.requireNonNull(listenAddress, "listenAddress");
 			return get();
 		}
 
@@ -277,7 +277,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 * @return {@code this}
 		 */
 		public final BUILDER sslSelfSigned(Consumer<? super SslContextBuilder> configurator) {
-			Objects.requireNonNull(configurator, "configurator");
+			ObjectHelper.requireNonNull(configurator, "configurator");
 			SelfSignedCertificate ssc;
 			try {
 				ssc = new SelfSignedCertificate();

@@ -18,7 +18,6 @@ package io.reactivex.netty.channel;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.Objects;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -26,6 +25,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.concurrent.Future;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 import io.reactivex.netty.FutureFlowable;
 import io.reactivex.netty.NettyContext;
@@ -76,7 +76,7 @@ abstract class CloseableContextHandler<CHANNEL extends Channel>
 	@Override
 	@SuppressWarnings("unchecked")
 	public final void setFuture(Future<?> future) {
-		Objects.requireNonNull(future, "future");
+		ObjectHelper.requireNonNull(future, "future");
 		if (this.f != null) {
 			future.cancel(true);
 			return;
