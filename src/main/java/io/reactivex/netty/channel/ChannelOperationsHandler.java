@@ -16,13 +16,10 @@
 
 package io.reactivex.netty.channel;
 
-import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
-import java.util.function.BiConsumer;
-import java.util.function.BiPredicate;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
@@ -39,7 +36,8 @@ import io.netty.channel.FileRegion;
 import io.netty.util.ReferenceCountUtil;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
-import io.reactivex.internal.functions.ObjectHelper;
+import io.reactivex.functions.BiConsumer;
+import io.reactivex.functions.BiPredicate;
 import io.reactivex.internal.queue.SpscLinkedArrayQueue;
 import io.reactivex.internal.subscriptions.ScalarSubscription;
 import io.reactivex.internal.subscriptions.SubscriptionHelper;

@@ -21,12 +21,12 @@ import java.net.URI;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 
@@ -131,7 +131,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		}
 
 		@Override
-		public boolean test(HttpServerRequest o) {
+		public boolean test(HttpServerRequest o) throws Exception {
 			return condition.test(o);
 		}
 	}

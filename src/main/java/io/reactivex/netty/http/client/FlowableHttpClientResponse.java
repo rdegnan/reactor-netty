@@ -18,7 +18,6 @@ package io.reactivex.netty.http.client;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -28,6 +27,7 @@ import io.netty.util.AsciiString;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
 import io.reactivex.netty.NettyInbound;

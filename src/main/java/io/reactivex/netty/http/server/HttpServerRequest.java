@@ -17,12 +17,12 @@
 package io.reactivex.netty.http.server;
 
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.reactivex.Flowable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import io.reactivex.netty.NettyContext;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.http.HttpInfos;

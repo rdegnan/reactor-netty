@@ -17,7 +17,6 @@
 package io.reactivex.netty.udp;
 
 import java.net.SocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -26,7 +25,9 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.options.ClientOptions;
@@ -121,7 +122,11 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	private UdpClient(UdpClient.Builder builder) {
 		UdpClientOptions.Builder clientOptionsBuilder = UdpClientOptions.builder();
 		if (builder.options != null) {
-			builder.options.accept(clientOptionsBuilder);
+			try {
+				builder.options.accept(clientOptionsBuilder);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
 			clientOptionsBuilder.loopResources(DEFAULT_UDP_LOOPS);
@@ -136,7 +141,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 				null == handler ? ChannelOperations.noopHandler() : handler;
 
 		return NettyHandler.create(sink -> {
-			Bootstrap b = options.get();
+			Bootstrap b = options.call();
 			SocketAddress adr = options.getAddress();
 			if(adr == null){
 				sink.onError(new NullPointerException("Provided ClientOptions do not " +

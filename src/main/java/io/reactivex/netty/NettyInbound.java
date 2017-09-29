@@ -17,12 +17,13 @@
 package io.reactivex.netty;
 
 import java.net.InetSocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 
 /**
  * An inbound-traffic API delegating to an underlying {@link Channel}
@@ -62,7 +63,11 @@ public interface NettyInbound {
 	 * @return the {@link NettyContext}
 	 */
 	default NettyInbound context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 

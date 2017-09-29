@@ -17,11 +17,10 @@
 package io.reactivex.netty.resources;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -34,6 +33,8 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.internal.PlatformDependent;
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 
 /**
  * @author Stephane Maldini
@@ -59,7 +60,7 @@ final class DefaultPoolResources implements PoolResources {
 
 	@Override
 	public ChannelPool selectOrCreate(SocketAddress remote,
-			Supplier<? extends Bootstrap> bootstrap,
+			Callable<? extends Bootstrap> bootstrap,
 			Consumer<? super Channel> onChannelCreate,
 			EventLoopGroup group) {
 		SocketAddress address = remote;
@@ -68,15 +69,18 @@ final class DefaultPoolResources implements PoolResources {
 			if (pool != null) {
 				return pool;
 			}
-			Bootstrap b = bootstrap.get();
-			if (remote != null) {
-				b = b.remoteAddress(remote);
+			try {
+				Bootstrap b = bootstrap.call();
+				if (remote != null) {
+					b = b.remoteAddress(remote);
+				} else {
+					address = b.config()
+							.remoteAddress();
+				}
+				pool = new Pool(b, provider, onChannelCreate, group);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
 			}
-			else {
-				address = b.config()
-				          .remoteAddress();
-			}
-			pool = new Pool(b, provider, onChannelCreate, group);
 			if (channelPools.putIfAbsent(address, pool) == null) {
 				return pool;
 			}
@@ -187,8 +191,11 @@ final class DefaultPoolResources implements PoolResources {
 
 	@Override
 	public boolean isDisposed() {
-		return channelPools.isEmpty() || channelPools.values()
-		                                             .stream()
-		                                             .allMatch(AtomicBoolean::get);
+		for (Pool pool: channelPools.values()) {
+			if (!pool.get()) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

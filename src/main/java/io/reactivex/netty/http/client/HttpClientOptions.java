@@ -19,11 +19,11 @@ package io.reactivex.netty.http.client;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.URI;
-import java.util.function.Function;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.reactivex.functions.Function;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.options.ClientOptions;
 import io.reactivex.netty.options.ClientProxyOptions;
@@ -179,7 +179,7 @@ public final class HttpClientOptions extends ClientOptions {
 		 */
 		public final Builder compression(boolean enabled) {
 			this.acceptGzip = enabled;
-			return get();
+			return call();
 		}
 
 		/**
@@ -190,7 +190,7 @@ public final class HttpClientOptions extends ClientOptions {
 		 */
 		public final Builder httpProxy(Function<ClientProxyOptions.AddressSpec, ClientProxyOptions.Builder> proxyOptions) {
 			super.proxy(t -> proxyOptions.apply(t.type(Proxy.HTTP)));
-			return get();
+			return call();
 		}
 
 		/**
@@ -202,7 +202,7 @@ public final class HttpClientOptions extends ClientOptions {
 		public final Builder from(HttpClientOptions options) {
 			super.from(options);
 			this.acceptGzip = options.acceptGzip;
-			return get();
+			return call();
 		}
 
 		@Override

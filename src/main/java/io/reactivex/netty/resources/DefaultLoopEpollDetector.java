@@ -76,7 +76,7 @@ final class DefaultLoopEpollDetector {
 			return false;
 		}
 		if (group instanceof ColocatedEventLoopGroup) {
-			group = ((ColocatedEventLoopGroup) group).get();
+			group = ((ColocatedEventLoopGroup) group).call();
 		}
 		return group instanceof EpollEventLoopGroup;
 	}

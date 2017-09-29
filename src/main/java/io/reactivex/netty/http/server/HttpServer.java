@@ -16,8 +16,6 @@
 
 package io.reactivex.netty.http.server;
 
-import java.util.function.Consumer;
-
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpRequestDecoder;
@@ -27,8 +25,10 @@ import io.netty.util.NetUtil;
 
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyInbound;
@@ -126,7 +126,11 @@ public final class HttpServer
 			                    .port(builder.port);
 		}
 		else {
-			builder.options.accept(serverOptionsBuilder);
+			try {
+				builder.options.accept(serverOptionsBuilder);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		if (!serverOptionsBuilder.isLoopAvailable()) {
 			serverOptionsBuilder.loopResources(HttpResources.get());
@@ -167,7 +171,11 @@ public final class HttpServer
 			routesBuilder) {
 		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return newHandler(routes);
 	}
 
@@ -183,7 +191,11 @@ public final class HttpServer
 	public BlockingNettyContext startRouter(Consumer<? super HttpServerRoutes> routesBuilder) {
 		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return start(routes);
 	}
 
@@ -222,7 +234,11 @@ public final class HttpServer
 			Consumer<BlockingNettyContext> onStart) {
 		ObjectHelper.requireNonNull(routesBuilder, "routeBuilder");
 		HttpServerRoutes routes = HttpServerRoutes.newRoutes();
-		routesBuilder.accept(routes);
+		try {
+			routesBuilder.accept(routes);
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		startAndAwait(routes, onStart);
 	}
 

@@ -24,7 +24,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Supplier;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -38,7 +37,7 @@ import io.netty.util.concurrent.ScheduledFuture;
 /**
  * Reuse local event loop if already working inside one.
  */
-final class ColocatedEventLoopGroup implements EventLoopGroup, Supplier<EventLoopGroup> {
+final class ColocatedEventLoopGroup implements EventLoopGroup, Callable<EventLoopGroup> {
 
 	final EventLoopGroup eventLoopGroup;
 	final FastThreadLocal<EventLoop> localLoop = new FastThreadLocal<>();
@@ -220,7 +219,7 @@ final class ColocatedEventLoopGroup implements EventLoopGroup, Supplier<EventLoo
 	}
 
 	@Override
-	public EventLoopGroup get() {
+	public EventLoopGroup call() {
 		return eventLoopGroup;
 	}
 

@@ -18,7 +18,6 @@ package io.reactivex.netty.tcp;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -29,7 +28,9 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.NettyHandler;
@@ -120,7 +121,11 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 	protected TcpClient(TcpClient.Builder builder) {
 		ClientOptions.Builder<?> clientOptionsBuilder = ClientOptions.builder();
 		if (builder.options != null) {
-			builder.options.accept(clientOptionsBuilder);
+			try {
+				builder.options.accept(clientOptionsBuilder);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
 			clientOptionsBuilder.loopResources(TcpResources.get());
@@ -189,7 +194,7 @@ public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
 			sink.setCancellable(contextHandler);
 
 			if (pool == null) {
-				Bootstrap b = options.get();
+				Bootstrap b = options.call();
 				b.remoteAddress(remote);
 				b.handler(contextHandler);
 				contextHandler.setFuture(b.connect());

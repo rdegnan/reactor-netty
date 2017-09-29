@@ -17,9 +17,9 @@
 package io.reactivex.netty.http;
 
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 
 import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.netty.resources.LoopResources;
 import io.reactivex.netty.resources.PoolResources;
 import io.reactivex.netty.tcp.TcpResources;

@@ -16,11 +16,10 @@
 
 package io.reactivex.netty;
 
-import java.util.function.Consumer;
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandler;
 import io.reactivex.functions.BiConsumer;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import org.reactivestreams.Publisher;
 

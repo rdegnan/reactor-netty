@@ -19,7 +19,6 @@ package io.reactivex.netty.channel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -33,6 +32,7 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Cancellable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.options.ClientOptions;
@@ -298,7 +298,7 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 
 	@Override
 	@SuppressWarnings("unchecked")
-	public void accept(Channel channel) {
+	public void accept(Channel channel) throws Exception {
 		doPipeline(channel);
 		if (options.onChannelInit() != null) {
 			if (options.onChannelInit()
@@ -316,9 +316,6 @@ public abstract class ContextHandler<CHANNEL extends Channel>
 			channel.pipeline()
 			       .addLast(NettyPipeline.ReactiveBridge,
 					       new ChannelOperationsHandler(this));
-		}
-		catch (Exception t) {
-			RxJavaPlugins.onError(t);
 		}
 		finally {
 			if (null != options.afterChannelInit()) {

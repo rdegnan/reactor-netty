@@ -17,13 +17,8 @@
 package io.reactivex.netty.http.server;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -48,7 +43,10 @@ import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.cookie.ServerCookieEncoder;
 import io.netty.util.AsciiString;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.http.websocket.WebsocketInbound;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
@@ -110,7 +108,11 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 
 	@Override
 	public HttpServerOperations context(Consumer<NettyContext> contextCallback) {
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 
@@ -216,14 +218,22 @@ class HttpServerOperations extends HttpOperations<HttpServerRequest, HttpServerR
 		ObjectHelper.requireNonNull(key, "key");
 		Map<String, String> params = null;
 		if (paramsResolver != null) {
-			params = this.paramsResolver.apply(uri());
+			try {
+				params = this.paramsResolver.apply(uri());
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		return null != params ? params.get(key) : null;
 	}
 
 	@Override
 	public Map<String, String> params() {
-		return null != paramsResolver ? paramsResolver.apply(uri()) : null;
+		try {
+			return null != paramsResolver ? paramsResolver.apply(uri()) : null;
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 	}
 
 	@Override

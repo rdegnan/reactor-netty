@@ -17,10 +17,8 @@
 package io.reactivex.netty.tcp;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -29,6 +27,9 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.pool.ChannelPool;
 import io.netty.channel.socket.DatagramChannel;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.netty.resources.LoopResources;
 import io.reactivex.netty.resources.PoolResources;
 
@@ -150,7 +151,7 @@ public class TcpResources implements PoolResources, LoopResources {
 
 	@Override
 	public ChannelPool selectOrCreate(SocketAddress address,
-			Supplier<? extends Bootstrap> bootstrap,
+			Callable<? extends Bootstrap> bootstrap,
 			Consumer<? super Channel> onChannelCreate,
 			EventLoopGroup group) {
 		return defaultPools.selectOrCreate(address, bootstrap, onChannelCreate, group);
@@ -261,6 +262,10 @@ public class TcpResources implements PoolResources, LoopResources {
 			loops = loops == null ? previous.defaultLoops : loops;
 			pools = pools == null ? previous.defaultPools : pools;
 		}
-		return onNew.apply(loops, pools);
+		try {
+			return onNew.apply(loops, pools);
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 	}
 }

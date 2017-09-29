@@ -17,11 +17,9 @@
 package io.reactivex.netty.options;
 
 import java.net.SocketAddress;
-import java.time.Duration;
 import java.util.Map.Entry;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.bootstrap.Bootstrap;
@@ -34,6 +32,8 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AttributeKey;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Predicate;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyContext;
 import io.reactivex.netty.NettyInbound;
@@ -50,7 +50,7 @@ import io.reactivex.netty.resources.LoopResources;
  * @author Violeta Georgieva
  */
 public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP, ?>, SO extends NettyOptions<BOOTSTRAP, SO>>
-		implements Supplier<BOOTSTRAP> {
+		implements Callable<BOOTSTRAP> {
 
 	/**
 	 * The default port for rxnetty servers. Defaults to 12012 but can be tuned via
@@ -67,9 +67,9 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 	private final long                             sslHandshakeTimeoutMillis;
 	private final long                             sslCloseNotifyFlushTimeoutMillis;
 	private final long                             sslCloseNotifyReadTimeoutMillis;
-	protected final Consumer<? super Channel>      afterChannelInit;
+	protected final Consumer<? super Channel> afterChannelInit;
 	protected final Consumer<? super NettyContext> afterNettyContextInit;
-	private final Predicate<? super Channel>       onChannelInit;
+	private final Predicate<? super Channel> onChannelInit;
 
 	protected NettyOptions(NettyOptions.Builder<BOOTSTRAP, SO, ?> builder) {
 		this.bootstrapTemplate = builder.bootstrapTemplate;
@@ -84,8 +84,10 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 
 		Consumer<? super Channel> afterChannel = builder.afterChannelInit;
 		if (afterChannel != null && builder.channelGroup != null) {
-			this.afterChannelInit = ((Consumer<Channel>) builder.channelGroup::add)
-					.andThen(afterChannel);
+			this.afterChannelInit = e -> {
+				builder.channelGroup.add(e);
+				afterChannel.accept(e);
+			};
 		}
 		else if (afterChannel != null) {
 			this.afterChannelInit = afterChannel;
@@ -142,7 +144,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 	public abstract SO duplicate();
 
 	@Override
-	public BOOTSTRAP get() {
+	public BOOTSTRAP call() {
 		return bootstrapTemplate.clone();
 	}
 
@@ -281,7 +283,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 
 	public static abstract class Builder<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP, ?>,
 			SO extends NettyOptions<BOOTSTRAP, SO>, BUILDER extends Builder<BOOTSTRAP, SO, BUILDER>>
-			implements Supplier<BUILDER>{
+			implements Callable<BUILDER>{
 
 		private static final boolean DEFAULT_NATIVE =
 				Boolean.parseBoolean(System.getProperty("io.reactivex.netty.epoll", "true"));
@@ -319,7 +321,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public <T> BUILDER attr(AttributeKey<T> key, T value) {
 			this.bootstrapTemplate.attr(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -335,7 +337,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public <T> BUILDER option(ChannelOption<T> key, T value) {
 			this.bootstrapTemplate.option(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -346,7 +348,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER preferNative(boolean preferNative) {
 			this.preferNative = preferNative;
-			return get();
+			return call();
 		}
 
 		/**
@@ -359,7 +361,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER loopResources(LoopResources channelResources) {
 			this.loopResources = ObjectHelper.requireNonNull(channelResources, "loopResources");
-			return get();
+			return call();
 		}
 
 		public final boolean isLoopAvailable() {
@@ -388,7 +390,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 			this.channelGroup = ObjectHelper.requireNonNull(channelGroup, "channelGroup");
 			//the channelGroup being set, afterChannelInit will be augmented to add
 			//each channel to the group, when actual Options are constructed
-			return get();
+			return call();
 		}
 
 		/**
@@ -400,18 +402,19 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER sslContext(SslContext sslContext) {
 			this.sslContext = sslContext;
-			return get();
+			return call();
 		}
 
 		/**
 		 * Set the options to use for configuring SSL handshake timeout. Default to 10000 ms.
 		 *
-		 * @param sslHandshakeTimeout The timeout {@link Duration}
+		 * @param sslHandshakeTimeout The timeout duration
+		 * @param unit The {@link TimeUnit}
 		 * @return {@code this}
 		 */
-		public final BUILDER sslHandshakeTimeout(Duration sslHandshakeTimeout) {
+		public final BUILDER sslHandshakeTimeout(long sslHandshakeTimeout, TimeUnit unit) {
 			ObjectHelper.requireNonNull(sslHandshakeTimeout, "sslHandshakeTimeout");
-			return sslHandshakeTimeoutMillis(sslHandshakeTimeout.toMillis());
+			return sslHandshakeTimeoutMillis(unit.toMillis(sslHandshakeTimeout));
 		}
 
 		/**
@@ -426,19 +429,19 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 						" was: "+sslHandshakeTimeoutMillis);
 			}
 			this.sslHandshakeTimeoutMillis = sslHandshakeTimeoutMillis;
-			return get();
+			return call();
 		}
 
 		/**
 		 * Set the options to use for configuring SSL close_notify flush timeout. Default to 3000 ms.
 		 *
-		 * @param sslCloseNotifyFlushTimeout The timeout {@link Duration}
-		 *
+		 * @param sslCloseNotifyFlushTimeout The timeout duration
+		 * @param unit The {@link TimeUnit}
 		 * @return {@code this}
 		 */
-		public final BUILDER sslCloseNotifyFlushTimeout(Duration sslCloseNotifyFlushTimeout) {
+		public final BUILDER sslCloseNotifyFlushTimeout(long sslCloseNotifyFlushTimeout, TimeUnit unit) {
 			ObjectHelper.requireNonNull(sslCloseNotifyFlushTimeout, "sslCloseNotifyFlushTimeout");
-			return sslCloseNotifyFlushTimeoutMillis(sslCloseNotifyFlushTimeout.toMillis());
+			return sslCloseNotifyFlushTimeoutMillis(unit.toMillis(sslCloseNotifyFlushTimeout));
 		}
 
 
@@ -455,20 +458,20 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 						" was: " + sslCloseNotifyFlushTimeoutMillis);
 			}
 			this.sslCloseNotifyFlushTimeoutMillis = sslCloseNotifyFlushTimeoutMillis;
-			return get();
+			return call();
 		}
 
 
 		/**
 		 * Set the options to use for configuring SSL close_notify read timeout. Default to 0 ms.
 		 *
-		 * @param sslCloseNotifyReadTimeout The timeout {@link Duration}
-		 *
+		 * @param sslCloseNotifyReadTimeout The timeout duration
+		 * @param unit The {@link TimeUnit}
 		 * @return {@code this}
 		 */
-		public final BUILDER sslCloseNotifyReadTimeout(Duration sslCloseNotifyReadTimeout) {
+		public final BUILDER sslCloseNotifyReadTimeout(long sslCloseNotifyReadTimeout, TimeUnit unit) {
 			ObjectHelper.requireNonNull(sslCloseNotifyReadTimeout, "sslCloseNotifyReadTimeout");
-			return sslCloseNotifyFlushTimeoutMillis(sslCloseNotifyReadTimeout.toMillis());
+			return sslCloseNotifyFlushTimeoutMillis(unit.toMillis(sslCloseNotifyReadTimeout));
 		}
 
 
@@ -485,7 +488,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 						" was: " + sslCloseNotifyReadTimeoutMillis);
 			}
 			this.sslCloseNotifyReadTimeoutMillis = sslCloseNotifyReadTimeoutMillis;
-			return get();
+			return call();
 		}
 
 		/**
@@ -499,7 +502,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER afterChannelInit(Consumer<? super Channel> afterChannelInit) {
 			this.afterChannelInit = ObjectHelper.requireNonNull(afterChannelInit, "afterChannelInit");
-			return get();
+			return call();
 		}
 
 		/**
@@ -513,7 +516,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER onChannelInit(Predicate<? super Channel> onChannelInit) {
 			this.onChannelInit = ObjectHelper.requireNonNull(onChannelInit, "onChannelInit");
-			return get();
+			return call();
 		}
 
 		/**
@@ -528,7 +531,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 */
 		public final BUILDER afterNettyContextInit(Consumer<? super NettyContext> afterNettyContextInit) {
 			this.afterNettyContextInit = ObjectHelper.requireNonNull(afterNettyContextInit, "afterNettyContextInit");
-			return get();
+			return call();
 		}
 
 		/**
@@ -538,7 +541,7 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 		 * @return {@code this}
 		 */
 		public BUILDER from(SO options) {
-			this.bootstrapTemplate = options.get();
+			this.bootstrapTemplate = options.call();
 			this.preferNative = options.preferNative();
 			this.loopResources = options.getLoopResources();
 			this.sslContext = options.sslContext();
@@ -548,7 +551,10 @@ public abstract class NettyOptions<BOOTSTRAP extends AbstractBootstrap<BOOTSTRAP
 			this.afterChannelInit = options.afterChannelInit();
 			this.onChannelInit = options.onChannelInit();
 			this.afterNettyContextInit = options.afterNettyContextInit();
-			return get();
+			return call();
 		}
+
+		@Override
+		public abstract BUILDER call();
 	}
 }

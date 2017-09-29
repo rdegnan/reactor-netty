@@ -17,14 +17,15 @@
 package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
 import io.netty.handler.proxy.Socks4ProxyHandler;
 import io.netty.handler.proxy.Socks5ProxyHandler;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Function;
 import io.reactivex.internal.functions.ObjectHelper;
 
 /**
@@ -45,7 +46,7 @@ public class ClientProxyOptions {
 
 	private final String username;
 	private final Function<? super String, ? extends String> password;
-	private final Supplier<? extends InetSocketAddress> address;
+	private final Callable<? extends InetSocketAddress> address;
 	private final Pattern nonProxyHosts;
 	private final Proxy type;
 
@@ -81,7 +82,7 @@ public class ClientProxyOptions {
 	 *
 	 * @return The supplier for the address to connect to.
 	 */
-	public final Supplier<? extends InetSocketAddress> getAddress() {
+	public final Callable<? extends InetSocketAddress> getAddress() {
 		return this.address;
 	}
 
@@ -103,10 +104,16 @@ public class ClientProxyOptions {
 	 * @return a new eventual {@link ProxyHandler}
 	 */
 	public final ProxyHandler newProxyHandler() {
-		InetSocketAddress proxyAddr = this.address.get();
-		String username = this.username;
-		String password = username != null && this.password != null ?
-				this.password.apply(username) : null;
+		InetSocketAddress proxyAddr;
+		String username, password;
+		try {
+			proxyAddr = this.address.call();
+			username = this.username;
+			password = username != null && this.password != null ?
+					this.password.apply(username) : null;
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 
 		switch (this.type) {
 			case HTTP:
@@ -133,14 +140,22 @@ public class ClientProxyOptions {
 
 
 	public String asSimpleString() {
-		return "proxy=" + this.type +
-				"(" + this.address.get() + ")";
+		try {
+			return "proxy=" + this.type +
+					"(" + this.address.call() + ")";
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 	}
 
 	public String asDetailedString() {
-		return "address=" + this.address.get() +
-				", nonProxyHosts=" + this.nonProxyHosts +
-				", type=" + this.type;
+		try {
+			return "address=" + this.address.call() +
+					", nonProxyHosts=" + this.nonProxyHosts +
+					", type=" + this.type;
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 	}
 
 	@Override
@@ -153,7 +168,7 @@ public class ClientProxyOptions {
 		private Function<? super String, ? extends String> password;
 		private String host;
 		private int port;
-		private Supplier<? extends InetSocketAddress> address;
+		private Callable<? extends InetSocketAddress> address;
 		private String nonProxyHosts;
 		private Proxy type;
 
@@ -195,7 +210,7 @@ public class ClientProxyOptions {
 		}
 
 		@Override
-		public final Builder address(Supplier<? extends InetSocketAddress> addressSupplier) {
+		public final Builder address(Callable<? extends InetSocketAddress> addressSupplier) {
 			this.address = ObjectHelper.requireNonNull(addressSupplier, "addressSupplier");
 			return this;
 		}
@@ -253,7 +268,7 @@ public class ClientProxyOptions {
 		 * @param addressSupplier The supplier for the address to connect to.
 		 * @return {@code this}
 		 */
-		public Builder address(Supplier<? extends InetSocketAddress> addressSupplier);
+		public Builder address(Callable<? extends InetSocketAddress> addressSupplier);
 	}
 
 	public interface Builder {

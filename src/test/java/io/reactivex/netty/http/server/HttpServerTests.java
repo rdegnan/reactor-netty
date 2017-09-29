@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import javax.net.ssl.SSLException;
 
 import io.netty.handler.codec.LineBasedFrameDecoder;
@@ -46,6 +45,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.reactivex.Flowable;
+import io.reactivex.functions.Function;
 import io.reactivex.netty.http.HttpResources;
 import io.reactivex.netty.http.client.HttpClient;
 import io.reactivex.netty.resources.PoolResources;

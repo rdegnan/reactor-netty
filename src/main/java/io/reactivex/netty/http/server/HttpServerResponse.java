@@ -20,7 +20,9 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.cookie.Cookie;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.netty.NettyPipeline;
 import io.reactivex.netty.http.websocket.WebsocketInbound;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
@@ -28,8 +30,6 @@ import org.reactivestreams.Publisher;
 import io.reactivex.netty.NettyContext;
 import io.reactivex.netty.NettyOutbound;
 import io.reactivex.netty.http.HttpInfos;
-
-import java.util.function.Consumer;
 
 /**
  *
@@ -69,7 +69,11 @@ public interface HttpServerResponse extends NettyOutbound, HttpInfos {
 
 	@Override
 	default HttpServerResponse context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 

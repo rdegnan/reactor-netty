@@ -18,7 +18,6 @@ package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -31,6 +30,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.AttributeKey;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyInbound;
 import io.reactivex.netty.resources.LoopResources;
@@ -90,8 +90,8 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 	}
 
 	@Override
-	public ServerBootstrap get() {
-		ServerBootstrap b = super.get();
+	public ServerBootstrap call() {
+		ServerBootstrap b = super.call();
 		groupAndChannel(b);
 		return b;
 	}
@@ -171,7 +171,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		@Override
 		public final <T> BUILDER attr(AttributeKey<T> key, T value) {
 			this.bootstrapTemplate.childAttr(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -187,7 +187,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		@Override
 		public final <T> BUILDER option(ChannelOption<T> key, T value) {
 			this.bootstrapTemplate.childOption(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -202,7 +202,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 */
 		public final <T> BUILDER selectorAttr(AttributeKey<T> key, T value) {
 			attr(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -218,7 +218,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 */
 		public final <T> BUILDER selectorOption(ChannelOption<T> key, T value) {
 			option(key, value);
-			return get();
+			return call();
 		}
 
 		/**
@@ -234,7 +234,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 			else {
 				this.host = host;
 			}
-			return get();
+			return call();
 		}
 
 		/**
@@ -245,7 +245,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 */
 		public final BUILDER port(int port) {
 			this.port = ObjectHelper.requireNonNull(port, "port");
-			return get();
+			return call();
 		}
 
 		/**
@@ -256,7 +256,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		 */
 		public final BUILDER listenAddress(SocketAddress listenAddress) {
 			this.listenAddress = ObjectHelper.requireNonNull(listenAddress, "listenAddress");
-			return get();
+			return call();
 		}
 
 		/**
@@ -285,7 +285,7 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 						SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey());
 				configurator.accept(builder);
 				sslContext(builder.build());
-				return get();
+				return call();
 			}
 			catch (Exception sslException) {
 				throw Exceptions.propagate(sslException);
@@ -296,12 +296,12 @@ public class ServerOptions extends NettyOptions<ServerBootstrap, ServerOptions> 
 		public final BUILDER from(ServerOptions options) {
 			super.from(options);
 			this.listenAddress = options.localAddress;
-			return get();
+			return call();
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public BUILDER get() {
+		public BUILDER call() {
 			return (BUILDER) this;
 		}
 

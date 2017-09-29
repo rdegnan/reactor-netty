@@ -18,8 +18,6 @@ package io.reactivex.netty.http.client;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Optional;
-import java.util.function.Consumer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -36,8 +34,10 @@ import io.netty.handler.logging.LoggingHandler;
 
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiConsumer;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
@@ -133,7 +133,11 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	private HttpClient(HttpClient.Builder builder) {
 		HttpClientOptions.Builder clientOptionsBuilder = HttpClientOptions.builder();
 		if (builder.options != null) {
-			builder.options.accept(clientOptionsBuilder);
+			try {
+				builder.options.accept(clientOptionsBuilder);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		if (!clientOptionsBuilder.isLoopAvailable()) {
 			clientOptionsBuilder.loopResources(HttpResources.get());
@@ -401,7 +405,11 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 					pool,
 					handler != null ? (ch, c, msg) -> {
 						if(onSetup != null){
-							onSetup.accept(ch);
+							try {
+								onSetup.accept(ch);
+							} catch (Exception e) {
+								throw Exceptions.propagate(e);
+							}
 						}
 						return HttpClientOperations.bindHttp(ch, handler, c);
 					} : EMPTY).onPipeline(this);
@@ -420,8 +428,8 @@ public class HttpClient implements NettyConnector<HttpClientResponse, HttpClient
 	}
 
 	static String rxNettyVersion() {
-		return Optional.ofNullable(HttpClient.class.getPackage().getImplementationVersion())
-		               .orElse("dev");
+		String version = HttpClient.class.getPackage().getImplementationVersion();
+		return version != null ? version : "dev";
 	}
 
 	static Function<? super HttpClientRequest, ? extends Publisher<Void>> handler(Function<? super HttpClientRequest, ? extends Publisher<Void>> h,

@@ -18,14 +18,14 @@ package io.reactivex.netty.http.server;
 
 import java.io.File;
 import java.net.URI;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.http.websocket.WebsocketInbound;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
 import org.reactivestreams.Publisher;
@@ -145,7 +145,7 @@ public interface HttpServerRoutes extends
 	 */
 	default HttpServerRoutes file(Predicate<HttpServerRequest> uri, File file,
 			Function<HttpServerResponse, HttpServerResponse> interceptor) {
-		Objects.requireNonNull(file, "file");
+		ObjectHelper.requireNonNull(file, "file");
 		return route(uri, (req, resp) -> {
 			if (!file.canRead()) {
 				return resp.send(ByteBufFlowable.fromFile(file));

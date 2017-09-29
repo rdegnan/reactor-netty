@@ -16,15 +16,15 @@
 package io.reactivex.netty.http;
 
 import java.net.SocketAddress;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
 import io.reactivex.Flowable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.netty.resources.PoolResources;
 import org.junit.Before;
 import org.junit.Test;
@@ -65,7 +65,7 @@ public class HttpResourcesTest {
 		poolResources = new PoolResources() {
 			@Override
 			public ChannelPool selectOrCreate(SocketAddress address,
-					Supplier<? extends Bootstrap> bootstrap,
+					Callable<? extends Bootstrap> bootstrap,
 					Consumer<? super Channel> onChannelCreate, EventLoopGroup group) {
 				return null;
 			}

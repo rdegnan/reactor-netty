@@ -22,7 +22,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -58,6 +57,7 @@ import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.Action;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.EmptySubscription;
 import io.reactivex.netty.FutureFlowable;
@@ -217,7 +217,11 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 	@Override
 	public HttpClientOperations context(Consumer<NettyContext> contextCallback) {
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 

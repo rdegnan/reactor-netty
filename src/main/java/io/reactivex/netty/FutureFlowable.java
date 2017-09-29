@@ -15,11 +15,12 @@
  */
 package io.reactivex.netty;
 
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.EmptySubscription;
 import org.reactivestreams.Subscriber;
@@ -61,7 +62,7 @@ public abstract class FutureFlowable extends Flowable<Void> {
 	 *
 	 * @return A {@link Flowable} forwarding {@link Future} success or failure
 	 */
-	public static <F extends Future<Void>> Flowable<Void> deferFuture(Supplier<F> deferredFuture) {
+	public static <F extends Future<Void>> Flowable<Void> deferFuture(Callable<F> deferredFuture) {
 		return new DeferredFutureFlowable<>(deferredFuture);
 	}
 
@@ -93,35 +94,39 @@ public abstract class FutureFlowable extends Flowable<Void> {
 
 	final static class DeferredFutureFlowable<F extends Future<Void>> extends FutureFlowable {
 
-		final Supplier<F> deferredFuture;
+		final Callable<F> deferredFuture;
 
-		DeferredFutureFlowable(Supplier<F> deferredFuture) {
+		DeferredFutureFlowable(Callable<F> deferredFuture) {
 			this.deferredFuture =
 					ObjectHelper.requireNonNull(deferredFuture, "deferredFuture");
 		}
 
 		@Override
 		public void subscribeActual(Subscriber<? super Void> s) {
-			F f = deferredFuture.get();
+			try {
+				F f = deferredFuture.call();
 
-			if (f == null) {
-				EmptySubscription.error(new NullPointerException("Deferred supplied null"), s);
-				return;
-			}
-
-			if(f.isDone()){
-				if(f.isSuccess()){
-					EmptySubscription.complete(s);
+				if (f == null) {
+					EmptySubscription.error(new NullPointerException("Deferred supplied null"), s);
+					return;
 				}
-				else{
-					EmptySubscription.error(f.cause(), s);
-				}
-				return;
-			}
 
-			FutureSubscription<F> fs = new FutureSubscription<>(f, s);
-			s.onSubscribe(fs);
-			f.addListener(fs);
+				if (f.isDone()) {
+					if (f.isSuccess()) {
+						EmptySubscription.complete(s);
+					} else {
+						EmptySubscription.error(f.cause(), s);
+					}
+					return;
+				}
+
+				FutureSubscription<F> fs = new FutureSubscription<>(f, s);
+				s.onSubscribe(fs);
+				f.addListener(fs);
+			} catch (Throwable e) {
+				Exceptions.throwIfFatal(e);
+				EmptySubscription.error(e, s);
+			}
 		}
 
 

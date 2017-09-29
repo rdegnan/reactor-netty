@@ -17,8 +17,7 @@
 package io.reactivex.netty.resources;
 
 import java.net.SocketAddress;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -28,6 +27,7 @@ import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.pool.SimpleChannelPool;
 import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 
 /**
  * A {@link io.netty.channel.pool.ChannelPool} selector with associated factories.
@@ -154,7 +154,7 @@ public interface PoolResources extends Disposable {
 	 * @return an existing or new {@link ChannelPool}
 	 */
 	ChannelPool selectOrCreate(SocketAddress address,
-			Supplier<? extends Bootstrap> bootstrap,
+			Callable<? extends Bootstrap> bootstrap,
 			Consumer<? super Channel> onChannelCreate,
 			EventLoopGroup group);
 

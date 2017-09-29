@@ -17,7 +17,6 @@
 package io.reactivex.netty.tcp;
 
 import java.net.SocketAddress;
-import java.util.function.Consumer;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -26,7 +25,9 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.NetUtil;
 import io.reactivex.Flowable;
 import io.reactivex.MaybeEmitter;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.*;
 import io.reactivex.netty.channel.ChannelOperations;
@@ -133,7 +134,11 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 			                    .port(builder.port);
 		}
 		else {
-			builder.options.accept(serverOptionsBuilder);
+			try {
+				builder.options.accept(serverOptionsBuilder);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		if (!serverOptionsBuilder.isLoopAvailable()) {
 			serverOptionsBuilder.loopResources(TcpResources.get());
@@ -152,7 +157,7 @@ public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
 	public final Flowable<? extends NettyContext> newHandler(BiFunction<? super NettyInbound, ? super NettyOutbound, ? extends Publisher<Void>> handler) {
 		ObjectHelper.requireNonNull(handler, "handler");
 		return NettyHandler.create(sink -> {
-			ServerBootstrap b = options.get();
+			ServerBootstrap b = options.call();
 			SocketAddress local = options.getAddress();
 			b.localAddress(local);
 			ContextHandler<Channel> contextHandler = doHandler(handler, sink);

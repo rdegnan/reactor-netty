@@ -18,9 +18,7 @@ package io.reactivex.netty.options;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelOption;
@@ -36,6 +34,8 @@ import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.NetUtil;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.resources.LoopResources;
 import io.reactivex.netty.resources.PoolResources;
@@ -81,7 +81,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 	private final ClientProxyOptions proxyOptions;
 
 	private final InternetProtocolFamily protocolFamily;
-	private final Supplier<? extends SocketAddress> connectAddress;
+	private final Callable<? extends SocketAddress> connectAddress;
 
 	/**
 	 * Deep-copy all references from the passed builder into this new
@@ -118,15 +118,19 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 	}
 
 	@Override
-	public Bootstrap get() {
-		Bootstrap b = super.get();
+	public Bootstrap call() {
+		Bootstrap b = super.call();
 		groupAndChannel(b);
 		return b;
 	}
 
 	@Override
 	public final SocketAddress getAddress() {
-		return connectAddress == null ? null : connectAddress.get();
+		try {
+			return connectAddress == null ? null : connectAddress.call();
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 	}
 
 	/**
@@ -197,9 +201,13 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 				this.protocolFamily == null && preferNative() && !(sslContext() instanceof JdkSslContext);
 		EventLoopGroup elg = loops.onClient(useNative);
 
-		if (this.poolResources != null && elg instanceof Supplier) {
+		if (this.poolResources != null && elg instanceof Callable) {
 			//don't colocate
-			bootstrap.group(((Supplier<EventLoopGroup>) elg).get());
+			try {
+				bootstrap.group(((Callable<EventLoopGroup>) elg).call());
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 		else {
 			bootstrap.group(elg);
@@ -256,7 +264,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		private InternetProtocolFamily protocolFamily;
 		private String host;
 		private int port = -1;
-		private Supplier<? extends SocketAddress> connectAddress;
+		private Callable<? extends SocketAddress> connectAddress;
 		private ClientProxyOptions proxyOptions;
 
 		/**
@@ -287,7 +295,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		public final BUILDER resolver(AddressResolverGroup<?> resolver) {
 			ObjectHelper.requireNonNull(resolver, "resolver");
 			this.bootstrapTemplate.resolver(resolver);
-			return get();
+			return call();
 		}
 
 		/**
@@ -301,7 +309,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		public final BUILDER poolResources(PoolResources poolResources) {
 			this.poolResources = ObjectHelper.requireNonNull(poolResources, "poolResources");
 			this.poolDisabled = false;
-			return get();
+			return call();
 		}
 
 		/**
@@ -312,7 +320,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		public BUILDER disablePool() {
 			this.poolResources = null;
 			this.poolDisabled = true;
-			return get();
+			return call();
 		}
 
 		public final boolean isPoolDisabled() {
@@ -332,7 +340,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER protocolFamily(InternetProtocolFamily protocolFamily) {
 			this.protocolFamily = ObjectHelper.requireNonNull(protocolFamily, "protocolFamily");
-			return get();
+			return call();
 		}
 
 		/**
@@ -378,7 +386,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 			else {
 				this.host = host;
 			}
-			return get();
+			return call();
 		}
 
 		/**
@@ -389,7 +397,7 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER port(int port) {
 			this.port = ObjectHelper.requireNonNull(port, "port");
-			return get();
+			return call();
 		}
 
 		/**
@@ -398,9 +406,9 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 * @param connectAddressSupplier A supplier of the address to connect to.
 		 * @return {@code this}
 		 */
-		public final BUILDER connectAddress(Supplier<? extends SocketAddress> connectAddressSupplier) {
+		public final BUILDER connectAddress(Callable<? extends SocketAddress> connectAddressSupplier) {
 			this.connectAddress = ObjectHelper.requireNonNull(connectAddressSupplier, "connectAddressSupplier");
-			return get();
+			return call();
 		}
 
 		/**
@@ -411,12 +419,16 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 		 */
 		public final BUILDER proxy(Function<ClientProxyOptions.TypeSpec, ClientProxyOptions.Builder> proxyOptions) {
 			ObjectHelper.requireNonNull(proxyOptions, "proxyOptions");
-			ClientProxyOptions.Builder builder = proxyOptions.apply(ClientProxyOptions.builder());
-			this.proxyOptions = builder.build();
-			if(bootstrapTemplate.config().resolver() == DefaultAddressResolverGroup.INSTANCE) {
-				resolver(NoopAddressResolverGroup.INSTANCE);
+			try {
+				ClientProxyOptions.Builder builder = proxyOptions.apply(ClientProxyOptions.builder());
+				this.proxyOptions = builder.build();
+				if(bootstrapTemplate.config().resolver() == DefaultAddressResolverGroup.INSTANCE) {
+					resolver(NoopAddressResolverGroup.INSTANCE);
+				}
+				return call();
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
 			}
-			return get();
 		}
 
 		@Override
@@ -426,12 +438,12 @@ public class ClientOptions extends NettyOptions<Bootstrap, ClientOptions> {
 			this.connectAddress = options.connectAddress;
 			this.poolResources = options.poolResources;
 			this.protocolFamily = options.protocolFamily;
-			return get();
+			return call();
 		}
 
 		@Override
 		@SuppressWarnings("unchecked")
-		public BUILDER get() {
+		public BUILDER call() {
 			return (BUILDER) this;
 		}
 

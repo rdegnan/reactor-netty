@@ -19,7 +19,6 @@ package io.reactivex.netty.http.client;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.util.function.Consumer;
 
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -27,6 +26,8 @@ import io.netty.handler.codec.http.cookie.Cookie;
 import io.netty.handler.codec.http.multipart.HttpDataFactory;
 import io.netty.handler.codec.http.multipart.HttpPostRequestEncoder;
 import io.reactivex.Flowable;
+import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 import io.reactivex.netty.NettyPipeline;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
 import org.reactivestreams.Publisher;
@@ -62,7 +63,11 @@ public interface HttpClientRequest extends NettyOutbound, HttpInfos {
 
 	@Override
 	default HttpClientRequest context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 

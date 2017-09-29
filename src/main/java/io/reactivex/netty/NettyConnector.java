@@ -16,12 +16,13 @@
 
 package io.reactivex.netty;
 
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Consumer;
 import org.reactivestreams.Publisher;
 import io.reactivex.netty.tcp.BlockingNettyContext;
 
@@ -122,7 +123,11 @@ public interface NettyConnector<INBOUND extends NettyInbound, OUTBOUND extends N
 		facade.installShutdownHook();
 
 		if (onStart != null) {
-			onStart.accept(facade);
+			try {
+				onStart.accept(facade);
+			} catch (Exception e) {
+				throw Exceptions.propagate(e);
+			}
 		}
 
 		facade.getContext()

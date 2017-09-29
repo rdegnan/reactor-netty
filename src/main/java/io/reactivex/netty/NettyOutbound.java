@@ -22,8 +22,6 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.Charset;
-import java.nio.file.StandardOpenOption;
-import java.util.function.Consumer;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -35,6 +33,7 @@ import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedNioFile;
 import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
+import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.channel.data.AbstractFileChunkedStrategy;
 import io.reactivex.netty.channel.data.FileChunkedStrategy;
@@ -88,7 +87,11 @@ public interface NettyOutbound extends Publisher<Void> {
 	 * @return the {@link NettyContext}
 	 */
 	default NettyOutbound context(Consumer<NettyContext> contextCallback){
-		contextCallback.accept(context());
+		try {
+			contextCallback.accept(context());
+		} catch (Exception e) {
+			throw Exceptions.propagate(e);
+		}
 		return this;
 	}
 
