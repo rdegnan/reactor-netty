@@ -28,6 +28,7 @@ import io.reactivex.MaybeEmitter;
 import io.reactivex.functions.Action;
 import io.reactivex.internal.functions.Functions;
 import io.reactivex.netty.NettyContext;
+import io.reactivex.netty.RxNetty;
 import io.reactivex.netty.options.ServerOptions;
 
 /**
@@ -100,7 +101,7 @@ final class ServerContextHandler extends CloseableContextHandler<Channel>
 		     .isActive()) {
 			return;
 		}
-		if(!NettyContext.isPersistent(channel)){
+		if(!RxNetty.isPersistent(channel)){
 			channel.close();
 		}
 	}

@@ -21,10 +21,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.reactivex.Flowable;
+import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.FutureFlowable;
 
 /**
@@ -32,7 +34,90 @@ import io.reactivex.netty.FutureFlowable;
  *
  * @since 0.6
  */
-final class DefaultLoopResources extends AtomicLong implements LoopResources {
+public final class DefaultLoopResources extends AtomicLong implements LoopResources {
+
+	/**
+	 * Default worker thread count, fallback to available processor
+	 */
+	public static int DEFAULT_IO_WORKER_COUNT = Integer.parseInt(System.getProperty(
+			"io.reactivex.netty.workerCount",
+			"" + Math.max(Runtime.getRuntime()
+					.availableProcessors(), 4)));
+	/**
+	 * Default selector thread count, fallback to -1 (no selector thread)
+	 */
+	public static int DEFAULT_IO_SELECT_COUNT = Integer.parseInt(System.getProperty(
+			"io.reactivex.netty.selectCount",
+			"" + -1));
+
+	/**
+	 * Create a delegating {@link EventLoopGroup} which reuse local event loop if already
+	 * working
+	 * inside one.
+	 *
+	 * @param group the {@link EventLoopGroup} to decorate
+	 *
+	 * @return a decorated {@link EventLoopGroup} that will colocate executions on the
+	 * same thread stack
+	 */
+	public static EventLoopGroup colocate(EventLoopGroup group) {
+		return new ColocatedEventLoopGroup(group);
+	}
+
+	/**
+	 * Create a simple {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 *
+	 * @param prefix the event loop thread name prefix
+	 * @param workerCount number of worker threads
+	 * @param daemon should the thread be released on jvm shutdown
+	 *
+	 * @return a new {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 */
+	public static LoopResources create(String prefix, int workerCount, boolean daemon) {
+		ObjectHelper.verifyPositive(workerCount, "workerCount");
+		return new DefaultLoopResources(prefix, workerCount, daemon);
+	}
+
+	/**
+	 * Create a simple {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 *
+	 * @param prefix the event loop thread name prefix
+	 * @param selectCount number of selector threads
+	 * @param workerCount number of worker threads
+	 * @param daemon should the thread be released on jvm shutdown
+	 *
+	 * @return a new {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 */
+	public static LoopResources create(String prefix,
+															int selectCount,
+															int workerCount,
+															boolean daemon) {
+		if (ObjectHelper.requireNonNull(prefix, "prefix").isEmpty()) {
+			throw new IllegalArgumentException("Cannot use empty prefix");
+		}
+		ObjectHelper.verifyPositive(selectCount, "selectCount");
+		ObjectHelper.verifyPositive(workerCount, "workerCount");
+		return new DefaultLoopResources(prefix, selectCount, workerCount, daemon);
+	}
+
+	/**
+	 * Create a simple {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 *
+	 * @param prefix the event loop thread name prefix
+	 *
+	 * @return a new {@link LoopResources} to provide automatically for {@link
+	 * EventLoopGroup} and {@link Channel} factories
+	 */
+	public static LoopResources create(String prefix) {
+		return new DefaultLoopResources(prefix, DEFAULT_IO_SELECT_COUNT,
+				DEFAULT_IO_WORKER_COUNT,
+				true);
+	}
 
 	final String                          prefix;
 	final boolean                         daemon;
@@ -68,7 +153,7 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 		this.serverLoops = new NioEventLoopGroup(workerCount,
 				threadFactory(this, "nio"));
 
-		this.clientLoops = LoopResources.colocate(serverLoops);
+		this.clientLoops = colocate(serverLoops);
 
 		this.cacheNativeClientLoops = new AtomicReference<>();
 		this.cacheNativeServerLoops = new AtomicReference<>();
@@ -196,7 +281,7 @@ final class DefaultLoopResources extends AtomicLong implements LoopResources {
 			EventLoopGroup newEventLoopGroup = DefaultLoopEpollDetector.newEventLoopGroup(
 					workerCount,
 					threadFactory(this, "client-epoll"));
-			newEventLoopGroup = LoopResources.colocate(newEventLoopGroup);
+			newEventLoopGroup = colocate(newEventLoopGroup);
 			if (!cacheNativeClientLoops.compareAndSet(null, newEventLoopGroup)) {
 				newEventLoopGroup.shutdownGracefully();
 			}

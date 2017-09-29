@@ -49,7 +49,7 @@ import io.reactivex.netty.tcp.TcpServer;
  * @author Violeta Georgieva
  */
 public final class HttpServer
-		implements NettyConnector<HttpServerRequest, HttpServerResponse> {
+		extends NettyConnector<HttpServerRequest, HttpServerResponse> {
 
 	/**
 	 * Build a simple Netty HTTP server listening on localhost (127.0.0.1) and

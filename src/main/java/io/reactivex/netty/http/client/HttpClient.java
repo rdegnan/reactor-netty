@@ -61,7 +61,7 @@ import io.reactivex.netty.tcp.TcpClient;
  * @author Simon Baslé
  * @author Violeta Georgieva
  */
-public class HttpClient implements NettyConnector<HttpClientResponse, HttpClientRequest> {
+public class HttpClient extends NettyConnector<HttpClientResponse, HttpClientRequest> {
 
 	public static final String USER_AGENT = String.format("RxNetty/%s", rxNettyVersion());
 

@@ -38,7 +38,7 @@ import org.reactivestreams.Publisher;
  *
  * @author Stephane Maldini
  */
-final class RxNetty {
+public final class RxNetty {
 
 	static final AttributeKey<Boolean> PERSISTENT_CHANNEL = AttributeKey.newInstance("PERSISTENT_CHANNEL");
 
@@ -157,15 +157,29 @@ final class RxNetty {
 	 * Determines if user-provided handlers registered on the given channel should
 	 * automatically be registered for removal through a {@link NettyContext#onClose(Action)}
 	 * (or similar on close hook). This depends on the
-	 * {@link NettyContext#isPersistent(Channel)} ()}
+	 * {@link RxNetty#isPersistent(Channel)} ()}
 	 * attribute.
 	 */
-	static boolean shouldCleanupOnClose(Channel channel) {
+	public static boolean shouldCleanupOnClose(Channel channel) {
 		boolean registerForClose = true;
-		if (!NettyContext.isPersistent(channel)) {
+		if (!isPersistent(channel)) {
 			registerForClose = false;
 		}
 		return registerForClose;
+	}
+
+	/**
+	 * Return false if it will force a close on terminal protocol events thus defeating
+	 * any pooling strategy
+	 * Return true (default) if it will release on terminal protocol events thus
+	 * keeping alive the channel if possible.
+	 *
+	 * @return whether or not the underlying {@link Channel} will be closed on terminal
+	 * handler event
+	 */
+	public static boolean isPersistent(Channel channel) {
+		return !channel.hasAttr(PERSISTENT_CHANNEL) ||
+				channel.attr(PERSISTENT_CHANNEL).get();
 	}
 
 	RxNetty(){

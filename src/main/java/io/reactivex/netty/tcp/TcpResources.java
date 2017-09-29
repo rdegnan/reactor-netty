@@ -30,6 +30,8 @@ import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
+import io.reactivex.netty.resources.DefaultLoopResources;
+import io.reactivex.netty.resources.DefaultPoolResources;
 import io.reactivex.netty.resources.LoopResources;
 import io.reactivex.netty.resources.PoolResources;
 
@@ -255,8 +257,8 @@ public class TcpResources implements PoolResources, LoopResources {
 			String name,
 			BiFunction<LoopResources, PoolResources, T> onNew) {
 		if (previous == null) {
-			loops = loops == null ? LoopResources.create("rxnetty-" + name) : loops;
-			pools = pools == null ? PoolResources.elastic(name) : pools;
+			loops = loops == null ? DefaultLoopResources.create("rxnetty-" + name) : loops;
+			pools = pools == null ? DefaultPoolResources.elastic(name) : pools;
 		}
 		else {
 			loops = loops == null ? previous.defaultLoops : loops;

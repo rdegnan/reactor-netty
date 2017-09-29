@@ -60,16 +60,13 @@ import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.internal.subscriptions.EmptySubscription;
-import io.reactivex.netty.FutureFlowable;
-import io.reactivex.netty.NettyContext;
-import io.reactivex.netty.NettyPipeline;
+import io.reactivex.netty.*;
 import io.reactivex.netty.channel.ContextHandler;
 import io.reactivex.netty.http.HttpOperations;
 import io.reactivex.netty.http.websocket.WebsocketInbound;
 import io.reactivex.netty.http.websocket.WebsocketOutbound;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
-import io.reactivex.netty.NettyOutbound;
 import io.reactivex.netty.http.Cookies;
 
 /**
@@ -496,7 +493,7 @@ class HttpClientOperations extends HttpOperations<HttpClientResponse, HttpClient
 
 	@Override
 	protected void onOutboundError(Throwable err) {
-		if(NettyContext.isPersistent(channel()) && responseState == null){
+		if(RxNetty.isPersistent(channel()) && responseState == null){
 			parentContext().fireContextError(err);
 			onHandlerTerminate();
 			return;

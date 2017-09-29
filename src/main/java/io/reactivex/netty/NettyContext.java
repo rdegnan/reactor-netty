@@ -37,20 +37,6 @@ import io.reactivex.internal.functions.Functions;
 public interface NettyContext extends Disposable {
 
 	/**
-	 * Return false if it will force a close on terminal protocol events thus defeating
-	 * any pooling strategy
-	 * Return true (default) if it will release on terminal protocol events thus
-	 * keeping alive the channel if possible.
-	 *
-	 * @return whether or not the underlying {@link Channel} will be closed on terminal
-	 * handler event
-	 */
-	static boolean isPersistent(Channel channel) {
-		return !channel.hasAttr(RxNetty.PERSISTENT_CHANNEL) ||
-				channel.attr(RxNetty.PERSISTENT_CHANNEL).get();
-	}
-
-	/**
 	 * Add a {@link ChannelHandler} with {@link #addHandlerFirst} if of type of
 	 * {@link io.netty.channel.ChannelOutboundHandler} otherwise with
 	 * {@link #addHandlerLast}. Implementation may add more auto handling in particular

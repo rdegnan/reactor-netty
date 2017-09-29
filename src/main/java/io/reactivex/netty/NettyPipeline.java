@@ -46,33 +46,33 @@ import org.reactivestreams.Publisher;
  * @author Stephane Maldini
  * @since 0.6
  */
-public interface NettyPipeline {
+public final class NettyPipeline {
 
-	String LEFT = "rxnetty.left.";
-	String RIGHT = "rxnetty.right.";
+	public static String LEFT = "rxnetty.left.";
+	public static String RIGHT = "rxnetty.right.";
 
-	String SslHandler         = LEFT + "sslHandler";
-	String SslReader          = LEFT + "sslReader";
-	String SslLoggingHandler  = LEFT + "sslLoggingHandler";
-	String ProxyHandler       = LEFT + "proxyHandler";
-	String ReactiveBridge     = RIGHT + "reactiveBridge";
-	String HttpEncoder        = LEFT + "httpEncoder";
-	String HttpDecoder        = LEFT + "httpDecoder";
-	String HttpDecompressor   = LEFT + "decompressor";
-	String HttpCompressor     = LEFT + "compressor";
-	String HttpAggregator     = LEFT + "httpAggregator";
-	String HttpServerHandler  = LEFT + "httpServerHandler";
-	String OnChannelWriteIdle = LEFT + "onChannelWriteIdle";
-	String OnChannelReadIdle  = LEFT + "onChannelReadIdle";
-	String ChunkedWriter      = LEFT + "chunkedWriter";
-	String LoggingHandler     = LEFT + "loggingHandler";
-	String CompressionHandler = LEFT + "compressionHandler";
+	public static String SslHandler         = LEFT + "sslHandler";
+	public static String SslReader          = LEFT + "sslReader";
+	public static String SslLoggingHandler  = LEFT + "sslLoggingHandler";
+	public static String ProxyHandler       = LEFT + "proxyHandler";
+	public static String ReactiveBridge     = RIGHT + "reactiveBridge";
+	public static String HttpEncoder        = LEFT + "httpEncoder";
+	public static String HttpDecoder        = LEFT + "httpDecoder";
+	public static String HttpDecompressor   = LEFT + "decompressor";
+	public static String HttpCompressor     = LEFT + "compressor";
+	public static String HttpAggregator     = LEFT + "httpAggregator";
+	public static String HttpServerHandler  = LEFT + "httpServerHandler";
+	public static String OnChannelWriteIdle = LEFT + "onChannelWriteIdle";
+	public static String OnChannelReadIdle  = LEFT + "onChannelReadIdle";
+	public static String ChunkedWriter      = LEFT + "chunkedWriter";
+	public static String LoggingHandler     = LEFT + "loggingHandler";
+	public static String CompressionHandler = LEFT + "compressionHandler";
 
 	/**
 	 * A builder for sending strategy, similar prefixed methods being mutually exclusive
 	 * (flushXxx, prefetchXxx, requestXxx).
 	 */
-	interface SendOptions {
+	public interface SendOptions {
 
 		/**
 		 * Make the underlying channel flush on a terminated {@link Publisher} (default).
@@ -95,7 +95,7 @@ public interface NettyPipeline {
 	 * An container transporting a new {@link SendOptions}, eventually bound to a
 	 * specific {@link Publisher}
 	 */
-	final class SendOptionsChangeEvent {
+	public static final class SendOptionsChangeEvent {
 
 		final Consumer<? super SendOptions> configurator;
 		final Publisher<?>                  source;
@@ -125,7 +125,7 @@ public interface NettyPipeline {
 	 *
 	 * @return a marking event used when a netty connector handler terminates
 	 */
-	static ChannelInboundHandler inboundHandler(BiConsumer<? super ChannelHandlerContext, Object> handler) {
+	public static ChannelInboundHandler inboundHandler(BiConsumer<? super ChannelHandlerContext, Object> handler) {
 		return new RxNetty.ExtractorHandler(handler);
 	}
 
@@ -134,11 +134,11 @@ public interface NettyPipeline {
 	 *
 	 * @return a marking event used when a netty connector handler terminates
 	 */
-	static Object handlerTerminatedEvent() {
+	public static Object handlerTerminatedEvent() {
 		return RxNetty.TERMINATED;
 	}
 
-	static Object responseCompressionEvent() {
+	public static Object responseCompressionEvent() {
 		return RxNetty.RESPONSE_COMPRESSION_EVENT;
 	}
 }

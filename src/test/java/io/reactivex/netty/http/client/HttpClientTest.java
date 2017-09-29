@@ -20,8 +20,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.cert.CertificateException;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.concurrent.CountDownLatch;
@@ -44,6 +42,7 @@ import io.netty.util.CharsetUtil;
 import io.reactivex.Completable;
 import io.reactivex.Flowable;
 import io.reactivex.Maybe;
+import io.reactivex.netty.resources.DefaultPoolResources;
 import io.reactivex.processors.PublishProcessor;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -79,7 +78,7 @@ public class HttpClientTest {
 		                          )
 		                          .blockingSingle();
 
-		PoolResources pool = PoolResources.fixed("test", 1);
+		PoolResources pool = DefaultPoolResources.fixed("test", 1);
 
 		HttpClient.create(opts -> opts.host("localhost")
 		                              .port(x.address().getPort())
@@ -123,7 +122,7 @@ public class HttpClientTest {
 		                                                      .neverComplete())
 		                          .blockingSingle();
 
-		PoolResources pool = PoolResources.fixed("test", 1);
+		PoolResources pool = DefaultPoolResources.fixed("test", 1);
 
 		HttpClient.create(opts -> opts.host("localhost")
 		                              .port(x.address().getPort())
@@ -360,7 +359,7 @@ public class HttpClientTest {
 
 	@Test
 	public void disableChunkImplicit() throws Exception {
-		PoolResources p = PoolResources.fixed("test", 1);
+		PoolResources p = DefaultPoolResources.fixed("test", 1);
 
 		HttpClientResponse r = HttpClient.create(opts -> opts.poolResources(p))
 		                                 .get("http://google.com/unsupportedURI",
@@ -399,7 +398,7 @@ public class HttpClientTest {
 
 	@Test
 	public void contentHeader() throws Exception {
-		PoolResources fixed = PoolResources.fixed("test", 1);
+		PoolResources fixed = DefaultPoolResources.fixed("test", 1);
 		HttpClientResponse r = HttpClient.create(opts -> opts.poolResources(fixed))
 		                                 .get("http://google.com",
 				                                 c -> c.header("content-length", "1")

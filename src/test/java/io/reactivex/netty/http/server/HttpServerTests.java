@@ -48,6 +48,7 @@ import io.reactivex.Flowable;
 import io.reactivex.functions.Function;
 import io.reactivex.netty.http.HttpResources;
 import io.reactivex.netty.http.client.HttpClient;
+import io.reactivex.netty.resources.DefaultPoolResources;
 import io.reactivex.netty.resources.PoolResources;
 import io.reactivex.netty.tcp.TcpClient;
 import org.junit.Test;
@@ -295,7 +296,7 @@ public class HttpServerTests {
 		                           .newRouter(routes -> routes.directory("/test", resource))
 		                           .blockingSingle();
 
-		HttpResources.set(PoolResources.fixed("http", 1));
+		HttpResources.set(DefaultPoolResources.fixed("http", 1));
 
 		HttpClientResponse response0 = HttpClient.create(c.address()
 		                                                  .getPort())

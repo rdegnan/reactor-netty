@@ -42,7 +42,7 @@ import org.reactivestreams.Publisher;
  * @author Stephane Maldini
  * @author Violeta Georgieva
  */
-public class TcpServer implements NettyConnector<NettyInbound, NettyOutbound> {
+public class TcpServer extends NettyConnector<NettyInbound, NettyOutbound> {
 
 	/**
 	 * Bind a new TCP server to "localhost" on a randomly assigned port.

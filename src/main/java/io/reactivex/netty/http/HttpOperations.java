@@ -42,17 +42,13 @@ import io.reactivex.Flowable;
 import io.reactivex.exceptions.Exceptions;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.internal.functions.ObjectHelper;
-import io.reactivex.netty.FutureFlowable;
-import io.reactivex.netty.NettyInbound;
-import io.reactivex.netty.NettyPipeline;
+import io.reactivex.netty.*;
 import io.reactivex.netty.channel.AbortedException;
 import io.reactivex.netty.channel.ChannelOperations;
 import io.reactivex.netty.channel.ContextHandler;
 import io.reactivex.netty.channel.data.AbstractFileChunkedStrategy;
 import org.reactivestreams.Publisher;
 
-import io.reactivex.netty.NettyContext;
-import io.reactivex.netty.NettyOutbound;
 import io.reactivex.netty.channel.data.FileChunkedStrategy;
 
 /**
@@ -242,7 +238,7 @@ public abstract class HttpOperations<INBOUND extends NettyInbound, OUTBOUND exte
 
 			c.channel().pipeline().addBefore(name, extractorName, HTTP_EXTRACTOR);
 
-			if(NettyContext.isPersistent(c.channel())){
+			if(RxNetty.isPersistent(c.channel())){
 				c.onClose(() -> c.removeHandler(extractorName));
 			}
 

@@ -31,6 +31,7 @@ import io.reactivex.functions.Consumer;
 import io.reactivex.internal.functions.ObjectHelper;
 import io.reactivex.netty.NettyConnector;
 import io.reactivex.netty.options.ClientOptions;
+import io.reactivex.netty.resources.DefaultLoopResources;
 import org.reactivestreams.Publisher;
 import io.reactivex.netty.NettyHandler;
 import io.reactivex.netty.NettyContext;
@@ -45,7 +46,7 @@ import io.reactivex.netty.resources.LoopResources;
  * @author Stephane Maldini
  * @author Violeta Georgieva
  */
-final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> {
+final public class UdpClient extends NettyConnector<UdpInbound, UdpOutbound> {
 
 	/**
 	 * Bind a new UDP client to the "localhost" address and {@link NettyOptions#DEFAULT_PORT port 12012}.
@@ -182,7 +183,7 @@ final public class UdpClient implements NettyConnector<UdpInbound, UdpOutbound> 
 	static final LoggingHandler loggingHandler = new LoggingHandler(UdpClient.class);
 
 	static final LoopResources DEFAULT_UDP_LOOPS =
-			LoopResources.create("udp", DEFAULT_UDP_THREAD_COUNT, true);
+			DefaultLoopResources.create("udp", DEFAULT_UDP_THREAD_COUNT, true);
 
 	public static final class Builder {
 		private Consumer<? super UdpClientOptions.Builder> options;

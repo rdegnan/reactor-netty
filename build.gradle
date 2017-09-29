@@ -90,6 +90,7 @@ configure(rootProject) { project ->
   apply plugin: 'groovy'
   apply from: "${gradleScriptDir}/ide.gradle"
   apply plugin: 'ru.vyarus.animalsniffer'
+  apply plugin: 'me.tatarka.retrolambda'
 
   jacoco {
 	toolVersion = '0.7.7.201606060606'
@@ -178,6 +179,11 @@ configure(rootProject) { project ->
 
   animalsniffer {
 	sourceSets = [sourceSets.main]
+  }
+
+  retrolambda {
+	javaVersion JavaVersion.VERSION_1_6
+	defaultMethods true
   }
 
   repositories {

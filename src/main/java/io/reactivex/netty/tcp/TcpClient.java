@@ -50,7 +50,7 @@ import io.reactivex.netty.options.NettyOptions;
  * @author Stephane Maldini
  * @author Violeta Georgieva
  */
-public class TcpClient implements NettyConnector<NettyInbound, NettyOutbound> {
+public class TcpClient extends NettyConnector<NettyInbound, NettyOutbound> {
 
 	/**
 	 * Bind a new TCP client to the localhost on {@link NettyOptions#DEFAULT_PORT port 12012}.
